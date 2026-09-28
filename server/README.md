@@ -57,6 +57,94 @@ O painel só precisa dos arquivos da pasta `server/`, não do resto do repositó
 8. Testa de fora acessando `http://IP_DO_SEU_VPS:PORTA/health` pra confirmar que
    a porta tá liberada no firewall do painel/host.
 
+## Cadastrando o celular
+
+Antes de mandar notificação, precisa cadastrar o dispositivo uma vez só. Isso
+gera a `apiKey` que você vai usar tanto no app quanto nos seus scripts.
+
+```
+http://SEU_SERVIDOR:PORTA/register?adminKey=SUA_ADMIN_KEY&deviceId=meu-celular&name=Meu+Celular
+```
+
+Guarda o `apiKey` que voltar na resposta, é ele que vai ser usado daqui pra
+frente (não é a `adminKey`, essa só serve pra cadastrar dispositivo novo).
+
+## Como mandar notificação de outra aplicação
+
+É só fazer um GET simples pro endpoint `/notify`, passando a `apiKey` do
+dispositivo, o `deviceId` e o que você quer mostrar. Não precisa de biblioteca
+nenhuma, funciona de qualquer linguagem que consiga fazer uma requisição HTTP.
+
+**Direto no navegador ou com curl**, só pra testar:
+
+```
+http://SEU_SERVIDOR:PORTA/notify?key=SUA_API_KEY&deviceId=meu-celular&title=Teste&message=Deu+certo&reason=Testando+o+servidor&app=Manual
+```
+
+**curl** (Linux/Mac/Git Bash):
+
+```bash
+curl "http://SEU_SERVIDOR:PORTA/notify?key=SUA_API_KEY&deviceId=meu-celular&title=Backup+concluido&message=Backup+diario+rodou+sem+erro&reason=Rotina+agendada&app=BackupScript"
+```
+
+**Python:**
+
+```python
+import requests
+
+requests.get("http://SEU_SERVIDOR:PORTA/notify", params={
+    "key": "SUA_API_KEY",
+    "deviceId": "meu-celular",
+    "title": "Pedido novo",
+    "message": "Chegou um pedido #4821",
+    "reason": "Webhook da loja disparou esse evento",
+    "app": "LojaOnline"
+})
+```
+
+**PHP:**
+
+```php
+<?php
+$url = "http://SEU_SERVIDOR:PORTA/notify?" . http_build_query([
+    "key" => "SUA_API_KEY",
+    "deviceId" => "meu-celular",
+    "title" => "Erro no site",
+    "message" => "Erro 500 detectado no checkout",
+    "reason" => "Monitoramento automatico",
+    "app" => "MeuSite"
+]);
+file_get_contents($url);
+```
+
+**PowerShell** (se você tá num Windows rodando alguma tarefa agendada):
+
+```powershell
+Invoke-WebRequest "http://SEU_SERVIDOR:PORTA/notify?key=SUA_API_KEY&deviceId=meu-celular&title=Script+terminou&message=Rodou+sem+erro&reason=Tarefa+agendada&app=PowerShell"
+```
+
+**Cron job** (Linux), só pra ilustrar um uso real:
+
+```bash
+# manda notificação todo dia às 8h avisando que o backup rodou
+0 8 * * * curl -s "http://SEU_SERVIDOR:PORTA/notify?key=SUA_API_KEY&deviceId=meu-celular&title=Backup&message=Rodou+as+8h&reason=Cron+diario&app=Backup" > /dev/null
+```
+
+Os parâmetros que dá pra mandar são esses:
+
+| Parâmetro  | Obrigatório | Pra que serve                                    |
+|------------|:-----------:|---------------------------------------------------|
+| `key`      | sim         | a apiKey do dispositivo (não é a adminKey)         |
+| `deviceId` | sim         | qual celular vai receber                           |
+| `title`    | não         | título da notificação                              |
+| `message`  | não         | o texto principal                                  |
+| `reason`   | não         | o motivo, aparece destacado ("Motivo: ...")        |
+| `app`      | não         | nome de quem tá mandando, aparece como "Origem"    |
+
+Se o celular estiver com o app aberto/serviço rodando, a notificação chega na
+hora. Se não estiver, fica guardada no servidor e é entregue assim que ele
+reconectar — não precisa reenviar nada.
+
 ## Sobre o data.json
 
 O servidor cria um arquivo `data.json` na própria pasta pra guardar os
