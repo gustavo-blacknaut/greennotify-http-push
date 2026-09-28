@@ -30,6 +30,10 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".NotificationsActivity"
+            android:exported="false" />
+
         <service
             android:name=".NotifyConnectionService"
             android:foregroundServiceType="dataSync"

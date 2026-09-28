@@ -7,6 +7,7 @@ const PORT = process.env.PORT || 8080;
 const ADMIN_KEY = process.env.ADMIN_KEY || 'troque-esta-chave-admin';
 
 const app = express();
+app.use(express.json());
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
 
@@ -27,6 +28,8 @@ function sendToDevice(deviceId, payload) {
 }
 
 // ---------- WebSocket: o app Android conecta aqui para receber em tempo real ----------
+// (o handshake do WebSocket é sempre feito via GET por especificação do protocolo,
+// isso não muda mesmo com o resto da API em POST)
 wss.on('connection', (ws, req) => {
   const url = new URL(req.url, 'http://localhost');
   const deviceId = url.searchParams.get('deviceId');
@@ -41,8 +44,7 @@ wss.on('connection', (ws, req) => {
   connections.get(deviceId).add(ws);
   console.log(`[ws] dispositivo conectado: ${deviceId}`);
 
-  // Envia notificações pendentes (ainda não entregues) assim que conectar
-  const pending = store.listNotifications(deviceId).filter(n => !n.delivered);
+  const pending = store.listNotifications(deviceId, 'pending').filter(n => !n.delivered);
   for (const n of pending) {
     ws.send(JSON.stringify({ type: 'notification', ...n }));
   }
@@ -62,14 +64,23 @@ wss.on('connection', (ws, req) => {
   });
 });
 
-// ---------- HTTP (tudo via GET, propositalmente, conforme solicitado) ----------
+// ---------- HTTP: tudo via POST (corpo em JSON) ----------
 
 app.get('/health', (req, res) => res.json({ ok: true }));
 
+function auth(req, res) {
+  const { key, deviceId } = req.body || {};
+  if (!deviceId || !store.isValidKey(deviceId, key)) {
+    res.status(401).json({ error: 'deviceId ou key inválidos' });
+    return null;
+  }
+  return deviceId;
+}
+
 // Cadastrar um novo dispositivo/app. Requer a chave de administrador.
-// GET /register?adminKey=...&deviceId=meu-celular&name=Pixel%208
-app.get('/register', (req, res) => {
-  const { adminKey, deviceId, name } = req.query;
+// POST /register { adminKey, deviceId, name }
+app.post('/register', (req, res) => {
+  const { adminKey, deviceId, name } = req.body || {};
   if (adminKey !== ADMIN_KEY) {
     return res.status(401).json({ error: 'adminKey inválida' });
   }
@@ -81,34 +92,53 @@ app.get('/register', (req, res) => {
 });
 
 // Enviar notificação (usado pelas suas outras aplicações).
-// GET /notify?key=API_KEY&deviceId=meu-celular&title=Servidor+caiu&message=CPU+em+100%25&reason=Alerta+de+monitoramento&app=Zabbix
-app.get('/notify', (req, res) => {
-  const { key, deviceId, title, message, reason, app: appName } = req.query;
-  if (!deviceId || !store.isValidKey(deviceId, key)) {
-    return res.status(401).json({ error: 'deviceId ou key inválidos' });
-  }
-  const notif = store.addNotification(deviceId, { title, message, reason, app: appName });
+// POST /notify { key, deviceId, title, message, reason, app, link }
+app.post('/notify', (req, res) => {
+  const deviceId = auth(req, res);
+  if (!deviceId) return;
+  const { title, message, reason, app: appName, link } = req.body || {};
+  const notif = store.addNotification(deviceId, { title, message, reason, app: appName, link });
   const delivered = sendToDevice(deviceId, { type: 'notification', ...notif });
   res.json({ ok: true, delivered, notification: notif });
 });
 
-// Listar notificações de um dispositivo.
-// GET /list?key=API_KEY&deviceId=meu-celular
-app.get('/list', (req, res) => {
-  const { key, deviceId } = req.query;
-  if (!deviceId || !store.isValidKey(deviceId, key)) {
-    return res.status(401).json({ error: 'deviceId ou key inválidos' });
-  }
-  res.json({ notifications: store.listNotifications(deviceId) });
+// Listar notificações de um dispositivo. status opcional: pending | done | archived
+// POST /list { key, deviceId, status }
+app.post('/list', (req, res) => {
+  const deviceId = auth(req, res);
+  if (!deviceId) return;
+  const { status } = req.body || {};
+  res.json({ notifications: store.listNotifications(deviceId, status) });
 });
 
-// Remover uma notificação (ou todas, com id=all).
-// GET /delete?key=API_KEY&deviceId=meu-celular&id=abc123
-app.get('/delete', (req, res) => {
-  const { key, deviceId, id } = req.query;
-  if (!deviceId || !store.isValidKey(deviceId, key)) {
-    return res.status(401).json({ error: 'deviceId ou key inválidos' });
-  }
+// Marcar notificação como concluída.
+// POST /complete { key, deviceId, id }
+app.post('/complete', (req, res) => {
+  const deviceId = auth(req, res);
+  if (!deviceId) return;
+  const { id } = req.body || {};
+  if (!id) return res.status(400).json({ error: 'id é obrigatório' });
+  const ok = store.setStatus(deviceId, id, 'done');
+  res.json({ ok });
+});
+
+// Mover notificação pra outro lugar (ex: arquivada). status: done | pending | archived
+// POST /move { key, deviceId, id, status }
+app.post('/move', (req, res) => {
+  const deviceId = auth(req, res);
+  if (!deviceId) return;
+  const { id, status } = req.body || {};
+  if (!id || !status) return res.status(400).json({ error: 'id e status são obrigatórios' });
+  const ok = store.setStatus(deviceId, id, status);
+  res.json({ ok });
+});
+
+// Remover uma notificação (ou todas, com id="all").
+// POST /delete { key, deviceId, id }
+app.post('/delete', (req, res) => {
+  const deviceId = auth(req, res);
+  if (!deviceId) return;
+  const { id } = req.body || {};
   if (!id) return res.status(400).json({ error: 'id é obrigatório (ou "all")' });
   const ok = store.deleteNotification(deviceId, id);
   sendToDevice(deviceId, { type: 'delete', id });
@@ -116,12 +146,11 @@ app.get('/delete', (req, res) => {
 });
 
 // Confirmar entrega/leitura (também pode ser feito via WebSocket).
-// GET /ack?key=API_KEY&deviceId=meu-celular&id=abc123
-app.get('/ack', (req, res) => {
-  const { key, deviceId, id } = req.query;
-  if (!deviceId || !store.isValidKey(deviceId, key)) {
-    return res.status(401).json({ error: 'deviceId ou key inválidos' });
-  }
+// POST /ack { key, deviceId, id }
+app.post('/ack', (req, res) => {
+  const deviceId = auth(req, res);
+  if (!deviceId) return;
+  const { id } = req.body || {};
   store.markDelivered(deviceId, id);
   res.json({ ok: true });
 });

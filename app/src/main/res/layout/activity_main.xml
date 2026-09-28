@@ -82,5 +82,12 @@
             android:text="Status: não configurado"
             android:textStyle="italic" />
 
+        <Button
+            android:id="@+id/buttonNotifications"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Ver notificações" />
+
     </LinearLayout>
 </ScrollView>

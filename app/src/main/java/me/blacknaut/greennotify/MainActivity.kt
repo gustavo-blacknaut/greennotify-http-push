@@ -61,6 +61,14 @@ class MainActivity : AppCompatActivity() {
             stopService(Intent(this, NotifyConnectionService::class.java))
             refreshStatus()
         }
+
+        findViewById<Button>(R.id.buttonNotifications).setOnClickListener {
+            if (!Prefs.isConfigured(this)) {
+                Toast.makeText(this, "Salve a configuração primeiro", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            startActivity(Intent(this, NotificationsActivity::class.java))
+        }
     }
 
     private fun refreshStatus() {

@@ -1,12 +1,18 @@
 # GreenNotify
 
 Sistema de notificações próprio: um servidor Node.js (HTTP puro, **sem HTTPS**) que recebe
-pedidos de notificação via `GET` (nada de webhooks) e um app Android que mantém uma conexão
-persistente (WebSocket) para exibir as notificações no celular, com o motivo incluído.
+pedidos de notificação via `POST` (nada de webhooks — a aplicação que quer notificar você é
+quem chama o servidor) e um app Android que mantém uma conexão persistente (WebSocket) para
+exibir as notificações no celular, com motivo, link e um histórico onde dá pra marcar como
+concluída ou arquivar.
+
+Documentação completa de cada parte:
+
+- [`server/README.md`](server/README.md) — como rodar, subir no Pterodactyl e todos os
+  endpoints com exemplos em curl/Python/PHP/PowerShell
+- Este arquivo — visão geral rápida
 
 ## 1. Servidor (`server/`)
-
-### Rodar
 
 ```bash
 cd server
@@ -14,48 +20,64 @@ npm install
 ADMIN_KEY=escolha-uma-chave-forte PORT=8080 node index.js
 ```
 
-Por padrão sobe em `http://0.0.0.0:8080`. Deixe a máquina acessível na sua rede local
-(ou VPN) — como é HTTP puro, **não exponha isso diretamente na internet** sem pelo menos
-um firewall/VPN, já que as chaves trafegam em texto claro.
+Por padrão sobe em `http://0.0.0.0:8080`. Os dados ficam num banco SQLite local
+(`server/data.sqlite`, via `better-sqlite3`), não precisa instalar nada além do Node.
+
+Deixe a máquina acessível na sua rede local (ou VPN) — como é HTTP puro, **não exponha
+isso diretamente na internet** sem pelo menos um firewall/VPN, já que as chaves trafegam
+em texto claro.
 
 ### Cadastrar um dispositivo (o celular)
 
-```
-GET /register?adminKey=SUA_ADMIN_KEY&deviceId=meu-celular&name=Pixel+8
+```bash
+curl -X POST "http://SEU_SERVIDOR:8080/register" \
+  -H "Content-Type: application/json" \
+  -d '{"adminKey":"SUA_ADMIN_KEY","deviceId":"meu-celular","name":"Pixel 8"}'
 ```
 
 Retorna `apiKey` — copie esse valor para dentro do app Android.
 
 ### Enviar uma notificação (usado pelas suas outras aplicações)
 
-```
-GET /notify?key=API_KEY&deviceId=meu-celular&title=Servidor+caiu&message=CPU+100%25&reason=Alerta+do+monitoramento&app=Zabbix
+```bash
+curl -X POST "http://SEU_SERVIDOR:8080/notify" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "API_KEY",
+    "deviceId": "meu-celular",
+    "title": "Servidor caiu",
+    "message": "CPU em 100%",
+    "reason": "Alerta do monitoramento",
+    "app": "Zabbix",
+    "link": "https://painel.exemplo.com/incidentes/42"
+  }'
 ```
 
 - `key` — apiKey do dispositivo (obrigatório)
 - `deviceId` — obrigatório
-- `title` — título da notificação
-- `message` — mensagem
-- `reason` — o motivo (mostrado destacado na notificação do celular)
-- `app` — nome da aplicação que está enviando (aparece como "Origem")
+- `title` / `message` / `reason` — título, mensagem e o motivo (destacado na notificação)
+- `app` — nome de quem está enviando (aparece como "Origem")
+- `link` — link opcional (ticket, canal do Discord, pedido, etc). Ao tocar na notificação
+  ou no item da lista, o link abre direto no celular.
 
 Se o celular estiver conectado (app aberto/serviço rodando), a notificação chega na hora via
 WebSocket. Se estiver offline, fica guardada e é entregue assim que ele reconectar.
 
-### Outros endpoints (todos GET)
+### Outros endpoints (todos POST, corpo em JSON)
 
-- `GET /list?key=&deviceId=` — lista notificações do dispositivo
-- `GET /delete?key=&deviceId=&id=` — remove uma notificação (`id=all` remove todas)
-- `GET /ack?key=&deviceId=&id=` — marca como entregue/lida
-- `GET /health` — healthcheck
+- `/list` — lista notificações, filtrando por `status` (`pending`, `done`, `archived`)
+- `/complete` — marca uma notificação como concluída
+- `/move` — move para outro status (ex: arquivar)
+- `/delete` — remove uma notificação (`id: "all"` remove todas)
+- `/ack` — marca como entregue/lida
+- `GET /health` — healthcheck (esse único continua GET, é só um teste rápido)
 
-Os dados ficam persistidos em `server/data.json` (criado automaticamente).
+Detalhes e exemplos de cada um em [`server/README.md`](server/README.md).
 
 ## 2. App Android (`app/`)
 
 Projeto Android Studio (Kotlin) já dentro deste repositório. Abra a pasta raiz
-`GreenNotify` no Android Studio e deixe o Gradle sincronizar (é necessário Android
-Studio/JDK — não foi possível compilar neste ambiente sem JDK instalado).
+`GreenNotify` no Android Studio e deixe o Gradle sincronizar.
 
 ### Uso
 
@@ -67,22 +89,20 @@ Studio/JDK — não foi possível compilar neste ambiente sem JDK instalado).
 3. Toque em **Iniciar conexão** — isso sobe um serviço em primeiro plano (notificação
    discreta e permanente) que mantém o WebSocket conectado ao servidor, com reconexão
    automática caso a conexão caia.
-4. Pronto: qualquer `GET /notify` feito para esse `deviceId` aparece como notificação
-   nativa no celular, mostrando título, mensagem, motivo e a aplicação de origem.
+4. Pronto: qualquer `POST /notify` feito para esse `deviceId` aparece como notificação
+   nativa no celular, mostrando título, mensagem, motivo, origem e o link (se tiver).
+5. Toque em **Ver notificações** pra abrir o histórico: dá pra filtrar entre Pendentes,
+   Concluídas e Arquivadas, ver os detalhes completos de cada uma, abrir o link e marcar
+   como concluída ou arquivar direto pela lista.
 
 O app pede a permissão de notificações (Android 13+) na primeira abertura.
 
 ## 3. Integrando suas outras aplicações
 
-Qualquer aplicação (script, backend, IoT, cron job) só precisa fazer uma requisição
-`GET` simples, sem precisar expor um endpoint de webhook:
-
-```bash
-curl "http://SEU_SERVIDOR:8080/notify?key=API_KEY&deviceId=meu-celular&title=Backup+concluido&message=Backup+diario+ok&reason=Rotina+agendada&app=BackupScript"
-```
-
-Funciona de qualquer linguagem (Python `requests.get(...)`, PHP `file_get_contents`, etc.)
-sem necessidade de bibliotecas especiais, HTTPS ou servidor próprio para receber callbacks.
+Qualquer aplicação (script, backend, IoT, cron job) só precisa fazer um `POST` com JSON,
+sem precisar expor um endpoint de webhook — funciona de qualquer linguagem (Python
+`requests.post(...)`, PHP `curl`, PowerShell `Invoke-RestMethod`, etc). Exemplos prontos
+em cada linguagem estão em [`server/README.md`](server/README.md).
 
 ## Segurança (importante)
 
@@ -90,4 +110,5 @@ sem necessidade de bibliotecas especiais, HTTPS ou servidor próprio para recebe
   isso apenas em rede local/VPN confiável, nunca exposto diretamente à internet pública.
 - Cada dispositivo tem sua própria `apiKey`, e cadastro de novos dispositivos exige a
   `ADMIN_KEY` do servidor — troque o valor padrão via variável de ambiente.
-- Notificações ficam persistidas até serem confirmadas (`ack`) ou apagadas (`delete`).
+- Notificações ficam persistidas (SQLite) até serem apagadas, e mantêm um `status`
+  (pendente/concluída/arquivada) pra você organizar o histórico.
