@@ -11,8 +11,11 @@ mesmo.
 ```bash
 cd server
 npm install
-ADMIN_KEY=troque-isso PORT=8080 node index.js
+ADMIN_KEY=troque-por-uma-chave-longa PORT=8080 node index.js
 ```
+
+A `ADMIN_KEY` é obrigatória e precisa ter pelo menos 16 caracteres — sem ela o
+servidor nem sobe.
 
 Depois é só testar no navegador:
 

@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const Database = require('better-sqlite3');
@@ -26,8 +27,38 @@ db.exec(`
     createdAt INTEGER NOT NULL
   );
 
-  CREATE INDEX IF NOT EXISTS idx_notifications_device ON notifications(deviceId);
+  DROP INDEX IF EXISTS idx_notifications_device;
+  CREATE INDEX IF NOT EXISTS idx_notifications_device_status_created
+    ON notifications(deviceId, status, createdAt);
 `);
+
+function migrateLegacyJson() {
+  const legacyFile = path.join(__dirname, 'data.json');
+  if (!fs.existsSync(legacyFile)) return;
+  const legacy = JSON.parse(fs.readFileSync(legacyFile, 'utf8'));
+  const insertDevice = db.prepare(
+    'INSERT OR IGNORE INTO devices (deviceId, apiKey, name, createdAt) VALUES (?, ?, ?, ?)'
+  );
+  const insertNotif = db.prepare(`
+    INSERT OR IGNORE INTO notifications (id, deviceId, title, message, reason, app, link, status, delivered, createdAt)
+    VALUES (?, ?, ?, ?, ?, ?, '', 'pending', ?, ?)
+  `);
+  db.transaction(() => {
+    for (const [deviceId, d] of Object.entries(legacy.devices || {})) {
+      insertDevice.run(deviceId, d.apiKey, d.name || deviceId, d.createdAt || Date.now());
+    }
+    for (const [deviceId, list] of Object.entries(legacy.notifications || {})) {
+      for (const n of list) {
+        insertNotif.run(n.id, deviceId, n.title || '', n.message || '', n.reason || '', n.app || '',
+          n.delivered ? 1 : 0, n.createdAt || Date.now());
+      }
+    }
+  })();
+  fs.renameSync(legacyFile, legacyFile + '.migrated');
+  console.log('data.json antigo importado para o SQLite (renomeado para data.json.migrated)');
+}
+
+migrateLegacyJson();
 
 function genKey() {
   return crypto.randomBytes(24).toString('hex');
@@ -50,9 +81,15 @@ function getDevice(deviceId) {
   return db.prepare('SELECT * FROM devices WHERE deviceId = ?').get(deviceId);
 }
 
+function safeEqual(a, b) {
+  const bufA = Buffer.from(String(a));
+  const bufB = Buffer.from(String(b));
+  return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);
+}
+
 function isValidKey(deviceId, key) {
   const d = getDevice(deviceId);
-  return !!d && !!key && d.apiKey === key;
+  return !!d && !!key && safeEqual(d.apiKey, key);
 }
 
 function rowToNotification(row) {
@@ -80,11 +117,19 @@ function addNotification(deviceId, { title, message, reason, app, link }) {
   return rowToNotification(notif);
 }
 
-function listNotifications(deviceId, status) {
+function listNotifications(deviceId, status, limit = 100, offset = 0) {
   const rows = status
-    ? db.prepare('SELECT * FROM notifications WHERE deviceId = ? AND status = ? ORDER BY createdAt DESC').all(deviceId, status)
-    : db.prepare('SELECT * FROM notifications WHERE deviceId = ? ORDER BY createdAt DESC').all(deviceId);
+    ? db.prepare('SELECT * FROM notifications WHERE deviceId = ? AND status = ? ORDER BY createdAt DESC LIMIT ? OFFSET ?')
+        .all(deviceId, status, limit, offset)
+    : db.prepare('SELECT * FROM notifications WHERE deviceId = ? ORDER BY createdAt DESC LIMIT ? OFFSET ?')
+        .all(deviceId, limit, offset);
   return rows.map(rowToNotification);
+}
+
+function listUndelivered(deviceId) {
+  return db.prepare(
+    "SELECT * FROM notifications WHERE deviceId = ? AND status = 'pending' AND delivered = 0 ORDER BY createdAt ASC"
+  ).all(deviceId).map(rowToNotification);
 }
 
 function getNotification(deviceId, id) {
@@ -112,11 +157,14 @@ function markDelivered(deviceId, id) {
 }
 
 module.exports = {
+  close: () => db.close(),
+  safeEqual,
   registerDevice,
   getDevice,
   isValidKey,
   addNotification,
   listNotifications,
+  listUndelivered,
   getNotification,
   setStatus,
   deleteNotification,

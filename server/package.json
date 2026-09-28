@@ -1,7 +1,7 @@
 {
   "name": "greennotify-server",
   "version": "1.0.0",
-  "description": "Servidor HTTP (sem HTTPS) para receber notificacoes via GET e distribuir para apps Android via WebSocket",
+  "description": "Servidor HTTP (sem HTTPS) que recebe notificacoes via POST e entrega para o app Android via WebSocket",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
@@ -10,6 +10,7 @@
   "dependencies": {
     "better-sqlite3": "^13.0.3",
     "express": "^4.19.2",
+    "express-rate-limit": "^7.5.1",
     "ws": "^8.18.0"
   }
 }
