@@ -1,3 +1,60 @@
 <resources>
     <string name="app_name">GreenNotify</string>
+
+    <!-- Tela principal -->
+    <string name="label_server_url">URL do servidor (ex: http://192.168.0.10:8080)</string>
+    <string name="hint_server_url" translatable="false">http://192.168.0.10:8080</string>
+    <string name="label_device_id">ID deste dispositivo</string>
+    <string name="hint_device_id" translatable="false">meu-celular</string>
+    <string name="label_api_key">Chave de API do dispositivo</string>
+    <string name="hint_api_key">cole aqui a apiKey retornada por /register</string>
+    <string name="button_save">Salvar configuração</string>
+    <string name="button_start">Iniciar conexão</string>
+    <string name="button_stop">Parar conexão</string>
+    <string name="button_notifications">Ver notificações</string>
+    <string name="status_not_configured">Status: não configurado</string>
+    <string name="status_running">Status: serviço em execução</string>
+    <string name="status_stopped">Status: parado</string>
+    <string name="toast_config_saved">Configuração salva</string>
+    <string name="toast_save_first">Salve a configuração primeiro</string>
+
+    <!-- Histórico -->
+    <string name="title_notifications">Notificações</string>
+    <string name="filter_pending">Pendentes</string>
+    <string name="filter_done">Concluídas</string>
+    <string name="filter_archived">Arquivadas</string>
+    <string name="empty_notifications">Nenhuma notificação por aqui</string>
+    <string name="toast_configure_first">Configure o servidor na tela principal primeiro</string>
+    <string name="button_complete">Concluir</string>
+    <string name="button_completed">Concluída</string>
+    <string name="button_archive">Arquivar</string>
+    <string name="button_archived">Arquivada</string>
+    <string name="error_complete">Não consegui marcar como concluída</string>
+    <string name="error_archive">Não consegui arquivar</string>
+    <string name="error_invalid_link">Link inválido</string>
+    <string name="error_invalid_response">Resposta inválida do servidor</string>
+
+    <!-- Notificações do sistema -->
+    <string name="channel_service_name">Conexão em segundo plano</string>
+    <string name="channel_service_desc">Mantém a conexão com o servidor GreenNotify ativa</string>
+    <string name="channel_alerts_name">Notificações recebidas</string>
+    <string name="channel_alerts_desc">Notificações enviadas pelas suas aplicações</string>
+    <string name="default_notification_title">Notificação</string>
+    <string name="reason_format">Motivo: %1$s</string>
+    <string name="origin_format">Origem: %1$s</string>
+
+    <!-- Serviço de conexão -->
+    <string name="service_title">GreenNotify ativo</string>
+    <string name="service_connecting">Conectando…</string>
+    <string name="service_not_configured">Não configurado</string>
+    <string name="service_connected">Conectado a %1$s</string>
+    <string name="service_reconnecting">Reconectando…</string>
+    <string name="service_disconnected">Desconectado</string>
+    <string name="service_invalid_key">Chave inválida — confira deviceId e apiKey</string>
+
+    <!-- Erros de rede -->
+    <string name="error_server_not_configured">Servidor não configurado</string>
+    <string name="error_invalid_server_url">URL do servidor inválida</string>
+    <string name="error_network">Não consegui falar com o servidor</string>
+    <string name="error_http">Erro HTTP %1$d</string>
 </resources>

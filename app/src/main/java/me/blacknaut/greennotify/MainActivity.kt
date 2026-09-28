@@ -43,28 +43,29 @@ class MainActivity : AppCompatActivity() {
                 editDeviceId.text.toString(),
                 editApiKey.text.toString()
             )
-            Toast.makeText(this, "Configuração salva", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.toast_config_saved, Toast.LENGTH_SHORT).show()
             refreshStatus()
         }
 
         findViewById<Button>(R.id.buttonStart).setOnClickListener {
             if (!Prefs.isConfigured(this)) {
-                Toast.makeText(this, "Salve a configuração primeiro", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, R.string.toast_save_first, Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
             val svc = Intent(this, NotifyConnectionService::class.java)
             ContextCompat.startForegroundService(this, svc)
-            refreshStatus()
+            // start/stop são assíncronos: mostra o estado pedido em vez de consultar o serviço agora.
+            showStatus(running = true)
         }
 
         findViewById<Button>(R.id.buttonStop).setOnClickListener {
             stopService(Intent(this, NotifyConnectionService::class.java))
-            refreshStatus()
+            showStatus(running = false)
         }
 
         findViewById<Button>(R.id.buttonNotifications).setOnClickListener {
             if (!Prefs.isConfigured(this)) {
-                Toast.makeText(this, "Salve a configuração primeiro", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, R.string.toast_save_first, Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
             startActivity(Intent(this, NotificationsActivity::class.java))
@@ -72,10 +73,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshStatus() {
-        textStatus.text = if (Prefs.isRunning(this))
-            "Status: serviço em execução"
-        else
-            "Status: parado"
+        if (!Prefs.isConfigured(this)) {
+            textStatus.setText(R.string.status_not_configured)
+            return
+        }
+        showStatus(NotifyConnectionService.isAlive)
+    }
+
+    private fun showStatus(running: Boolean) {
+        textStatus.setText(if (running) R.string.status_running else R.string.status_stopped)
     }
 
     private fun requestNotificationPermissionIfNeeded() {

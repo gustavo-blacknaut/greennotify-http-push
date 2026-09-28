@@ -18,37 +18,49 @@ object ApiClient {
     private val jsonMedia = "application/json".toMediaType()
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    private fun toHttpUrl(serverUrl: String): String {
-        var url = serverUrl.trim().trimEnd('/')
-        if (!url.startsWith("http://") && !url.startsWith("https://")) url = "http://$url"
-        return url
+    fun toHttpUrl(serverUrl: String): String {
+        val url = serverUrl.trim().trimEnd('/')
+        return when {
+            url.startsWith("http://", true) || url.startsWith("https://", true) -> url
+            url.startsWith("ws://", true) -> "http://" + url.substring(5)
+            url.startsWith("wss://", true) -> "https://" + url.substring(6)
+            else -> "http://$url"
+        }
     }
 
-    private fun post(ctx: Context, path: String, body: JSONObject, onResult: (JSONObject?) -> Unit) {
+    /** onResult(json, erro): erro vem preenchido em falha de rede ou resposta não-2xx. */
+    private fun post(ctx: Context, path: String, body: JSONObject, onResult: (JSONObject?, String?) -> Unit) {
         val serverUrl = Prefs.getServerUrl(ctx)
         if (serverUrl.isBlank()) {
-            mainHandler.post { onResult(null) }
+            mainHandler.post { onResult(null, ctx.getString(R.string.error_server_not_configured)) }
             return
         }
-        val request = Request.Builder()
-            .url(toHttpUrl(serverUrl) + path)
-            .post(body.toString().toRequestBody(jsonMedia))
-            .build()
+        val request = try {
+            Request.Builder()
+                .url(toHttpUrl(serverUrl) + path)
+                .post(body.toString().toRequestBody(jsonMedia))
+                .build()
+        } catch (e: IllegalArgumentException) {
+            mainHandler.post { onResult(null, ctx.getString(R.string.error_invalid_server_url)) }
+            return
+        }
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                mainHandler.post { onResult(null) }
+                mainHandler.post { onResult(null, ctx.getString(R.string.error_network)) }
             }
 
             override fun onResponse(call: Call, response: okhttp3.Response) {
-                val text = response.body?.string()
-                val json = try {
-                    if (text != null) JSONObject(text) else null
-                } catch (e: Exception) {
-                    null
+                val json = response.use {
+                    try {
+                        it.body?.string()?.let(::JSONObject)
+                    } catch (e: Exception) {
+                        null
+                    }
                 }
-                response.close()
-                mainHandler.post { onResult(json) }
+                val error = if (response.isSuccessful) null
+                    else json?.optString("error")?.takeIf { it.isNotBlank() } ?: ctx.getString(R.string.error_http, response.code)
+                mainHandler.post { onResult(json, error) }
             }
         })
     }
@@ -59,21 +71,23 @@ object ApiClient {
             .put("deviceId", Prefs.getDeviceId(ctx))
     }
 
-    fun listNotifications(ctx: Context, status: String?, onResult: (JSONObject?) -> Unit) {
-        val body = authBody(ctx)
+    const val PAGE_SIZE = 100
+
+    fun listNotifications(ctx: Context, status: String?, offset: Int, onResult: (JSONObject?, String?) -> Unit) {
+        val body = authBody(ctx).put("limit", PAGE_SIZE).put("offset", offset)
         if (status != null) body.put("status", status)
         post(ctx, "/list", body, onResult)
     }
 
-    fun complete(ctx: Context, id: String, onResult: (JSONObject?) -> Unit) {
+    fun complete(ctx: Context, id: String, onResult: (JSONObject?, String?) -> Unit) {
         post(ctx, "/complete", authBody(ctx).put("id", id), onResult)
     }
 
-    fun move(ctx: Context, id: String, status: String, onResult: (JSONObject?) -> Unit) {
+    fun move(ctx: Context, id: String, status: String, onResult: (JSONObject?, String?) -> Unit) {
         post(ctx, "/move", authBody(ctx).put("id", id).put("status", status), onResult)
     }
 
-    fun delete(ctx: Context, id: String, onResult: (JSONObject?) -> Unit) {
+    fun delete(ctx: Context, id: String, onResult: (JSONObject?, String?) -> Unit) {
         post(ctx, "/delete", authBody(ctx).put("id", id), onResult)
     }
 }

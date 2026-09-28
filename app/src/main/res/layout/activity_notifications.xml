@@ -16,7 +16,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Pendentes" />
+            android:text="@string/filter_pending" />
 
         <Button
             android:id="@+id/buttonFilterDone"
@@ -25,7 +25,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginStart="4dp"
-            android:text="Concluídas" />
+            android:text="@string/filter_done" />
 
         <Button
             android:id="@+id/buttonFilterArchived"
@@ -34,7 +34,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginStart="4dp"
-            android:text="Arquivadas" />
+            android:text="@string/filter_archived" />
 
     </LinearLayout>
 
@@ -57,7 +57,7 @@
         android:layout_height="wrap_content"
         android:padding="24dp"
         android:gravity="center"
-        android:text="Nenhuma notificação por aqui"
+        android:text="@string/empty_notifications"
         android:visibility="gone" />
 
 </LinearLayout>

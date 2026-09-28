@@ -10,21 +10,27 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import org.json.JSONObject
 
+fun isWebLink(link: String): Boolean =
+    link.startsWith("http://", ignoreCase = true) || link.startsWith("https://", ignoreCase = true)
+
 object NotificationHelper {
     const val CHANNEL_SERVICE = "greennotify_service"
     const val CHANNEL_ALERTS = "greennotify_alerts"
+
+    // Notificações recebidas usam o id do servidor como tag: (tag, ALERT_ID) é único, sem colisão de hashCode.
+    private const val ALERT_ID = 1
 
     fun createChannels(ctx: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val nm = ctx.getSystemService(NotificationManager::class.java)
 
         val service = NotificationChannel(
-            CHANNEL_SERVICE, "Conexão em segundo plano", NotificationManager.IMPORTANCE_MIN
-        ).apply { description = "Mantém a conexão com o servidor GreenNotify ativa" }
+            CHANNEL_SERVICE, ctx.getString(R.string.channel_service_name), NotificationManager.IMPORTANCE_MIN
+        ).apply { description = ctx.getString(R.string.channel_service_desc) }
 
         val alerts = NotificationChannel(
-            CHANNEL_ALERTS, "Notificações recebidas", NotificationManager.IMPORTANCE_HIGH
-        ).apply { description = "Notificações enviadas pelas suas aplicações" }
+            CHANNEL_ALERTS, ctx.getString(R.string.channel_alerts_name), NotificationManager.IMPORTANCE_HIGH
+        ).apply { description = ctx.getString(R.string.channel_alerts_desc) }
 
         nm.createNotificationChannel(service)
         nm.createNotificationChannel(alerts)
@@ -32,7 +38,7 @@ object NotificationHelper {
 
     /** Exibe uma notificação recebida do servidor, incluindo o motivo (reason). */
     fun showIncoming(ctx: Context, json: JSONObject) {
-        val title = json.optString("title", "Notificação")
+        val title = json.optString("title").ifBlank { ctx.getString(R.string.default_notification_title) }
         val message = json.optString("message", "")
         val reason = json.optString("reason", "")
         val app = json.optString("app", "")
@@ -43,18 +49,17 @@ object NotificationHelper {
         if (message.isNotBlank()) bodyBuilder.append(message)
         if (reason.isNotBlank()) {
             if (bodyBuilder.isNotEmpty()) bodyBuilder.append("\n")
-            bodyBuilder.append("Motivo: ").append(reason)
+            bodyBuilder.append(ctx.getString(R.string.reason_format, reason))
         }
         if (app.isNotBlank()) {
             if (bodyBuilder.isNotEmpty()) bodyBuilder.append("\n")
-            bodyBuilder.append("Origem: ").append(app)
+            bodyBuilder.append(ctx.getString(R.string.origin_format, app))
         }
 
-        val targetIntent = if (link.isNotBlank()) {
-            Intent(Intent.ACTION_VIEW, Uri.parse(link))
-        } else {
-            Intent(ctx, NotificationsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
+        // Sem app que abra o link, o toque cai no histórico em vez de não fazer nada.
+        val linkIntent = if (isWebLink(link)) Intent(Intent.ACTION_VIEW, Uri.parse(link)) else null
+        val targetIntent = linkIntent?.takeIf { it.resolveActivity(ctx.packageManager) != null }
+            ?: Intent(ctx, NotificationsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val pendingIntent = PendingIntent.getActivity(
             ctx, id.hashCode(), targetIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -70,13 +75,11 @@ object NotificationHelper {
             .setContentIntent(pendingIntent)
             .build()
 
-        val nm = ctx.getSystemService(NotificationManager::class.java)
-        nm.notify(id.hashCode(), notification)
+        ctx.getSystemService(NotificationManager::class.java).notify(id, ALERT_ID, notification)
     }
 
     fun cancel(ctx: Context, id: String) {
-        val nm = ctx.getSystemService(NotificationManager::class.java)
-        nm.cancel(id.hashCode())
+        ctx.getSystemService(NotificationManager::class.java).cancel(id, ALERT_ID)
     }
 
     fun cancelAll(ctx: Context) {

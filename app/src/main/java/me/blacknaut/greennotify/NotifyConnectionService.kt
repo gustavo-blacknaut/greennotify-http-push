@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import okhttp3.*
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okio.ByteString
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
@@ -25,6 +26,7 @@ class NotifyConnectionService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        isAlive = true
         NotificationHelper.createChannels(this)
         client = OkHttpClient.Builder()
             .readTimeout(0, TimeUnit.MILLISECONDS)
@@ -33,9 +35,14 @@ class NotifyConnectionService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIF_ID, buildForegroundNotification("Conectando..."))
+        // startForeground antes de qualquer saída: startForegroundService exige a chamada em até 5s.
+        startForeground(NOTIF_ID, buildForegroundNotification(getString(R.string.service_connecting)))
+        if (!Prefs.isConfigured(this)) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         shouldReconnect = true
-        connect()
+        if (webSocket == null) connect()
         Prefs.setRunning(this, true)
         return START_STICKY
     }
@@ -43,7 +50,7 @@ class NotifyConnectionService : Service() {
     private fun buildForegroundNotification(status: String): Notification {
         return NotificationCompat.Builder(this, NotificationHelper.CHANNEL_SERVICE)
             .setSmallIcon(android.R.drawable.stat_notify_sync)
-            .setContentTitle("GreenNotify ativo")
+            .setContentTitle(getString(R.string.service_title))
             .setContentText(status)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_MIN)
@@ -60,17 +67,26 @@ class NotifyConnectionService : Service() {
         val deviceId = Prefs.getDeviceId(this)
         val apiKey = Prefs.getApiKey(this)
         if (serverUrl.isBlank() || deviceId.isBlank() || apiKey.isBlank()) {
-            updateStatus("Não configurado")
+            updateStatus(getString(R.string.service_not_configured))
             return
         }
 
-        val wsUrl = toWsUrl(serverUrl) + "/ws?deviceId=$deviceId&key=$apiKey"
+        val baseUrl = ApiClient.toHttpUrl(serverUrl).toHttpUrlOrNull()
+        if (baseUrl == null) {
+            updateStatus(getString(R.string.error_invalid_server_url))
+            return
+        }
+        val wsUrl = baseUrl.newBuilder()
+            .addPathSegment("ws")
+            .addQueryParameter("deviceId", deviceId)
+            .addQueryParameter("key", apiKey)
+            .build()
         val request = Request.Builder().url(wsUrl).build()
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 reconnectDelayMs = 2000L
-                updateStatus("Conectado a $deviceId")
+                updateStatus(getString(R.string.service_connected, deviceId))
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
@@ -82,19 +98,30 @@ class NotifyConnectionService : Service() {
             }
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                if (code == CLOSE_UNAUTHORIZED) shouldReconnect = false
                 webSocket.close(1000, null)
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                updateStatus("Reconectando...")
+                clearIfCurrent(webSocket)
+                updateStatus(getString(R.string.service_reconnecting))
                 scheduleReconnect()
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                updateStatus("Desconectado")
+                clearIfCurrent(webSocket)
+                if (code == CLOSE_UNAUTHORIZED) {
+                    updateStatus(getString(R.string.service_invalid_key))
+                    return
+                }
+                updateStatus(getString(R.string.service_disconnected))
                 scheduleReconnect()
             }
         })
+    }
+
+    private fun clearIfCurrent(ws: WebSocket) {
+        if (webSocket === ws) webSocket = null
     }
 
     private fun handleMessage(text: String) {
@@ -121,23 +148,15 @@ class NotifyConnectionService : Service() {
     private fun scheduleReconnect() {
         if (!shouldReconnect) return
         handler.postDelayed({
-            if (shouldReconnect) connect()
+            if (shouldReconnect && webSocket == null) connect()
         }, reconnectDelayMs)
         reconnectDelayMs = (reconnectDelayMs * 2).coerceAtMost(60_000L)
     }
 
-    private fun toWsUrl(httpUrl: String): String {
-        var url = httpUrl.trim().trimEnd('/')
-        return when {
-            url.startsWith("https://") -> "wss://" + url.removePrefix("https://")
-            url.startsWith("http://") -> "ws://" + url.removePrefix("http://")
-            url.startsWith("ws://") || url.startsWith("wss://") -> url
-            else -> "ws://$url"
-        }
-    }
-
     override fun onDestroy() {
         shouldReconnect = false
+        handler.removeCallbacksAndMessages(null)
+        isAlive = false
         webSocket?.close(1000, "service stopped")
         Prefs.setRunning(this, false)
         super.onDestroy()
@@ -147,5 +166,11 @@ class NotifyConnectionService : Service() {
 
     companion object {
         const val NOTIF_ID = 1001
+
+        /** Estado real do serviço no processo atual (Prefs.isRunning é a intenção do usuário, usada no boot). */
+        @Volatile
+        var isAlive = false
+            private set
+        private const val CLOSE_UNAUTHORIZED = 4001
     }
 }

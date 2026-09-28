@@ -12,7 +12,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="GreenNotify"
+            android:text="@string/app_name"
             android:textSize="24sp"
             android:textStyle="bold"
             android:layout_marginBottom="16dp" />
@@ -20,66 +20,66 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="URL do servidor (ex: http://192.168.0.10:8080)"
+            android:text="@string/label_server_url"
             android:textSize="12sp" />
         <EditText
             android:id="@+id/editServerUrl"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:inputType="textUri"
-            android:hint="http://192.168.0.10:8080" />
+            android:hint="@string/hint_server_url" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:text="ID deste dispositivo"
+            android:text="@string/label_device_id"
             android:textSize="12sp" />
         <EditText
             android:id="@+id/editDeviceId"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="meu-celular" />
+            android:hint="@string/hint_device_id" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:text="Chave de API do dispositivo"
+            android:text="@string/label_api_key"
             android:textSize="12sp" />
         <EditText
             android:id="@+id/editApiKey"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="cole aqui a apiKey retornada por /register" />
+            android:hint="@string/hint_api_key" />
 
         <Button
             android:id="@+id/buttonSave"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="Salvar configuração" />
+            android:text="@string/button_save" />
 
         <Button
             android:id="@+id/buttonStart"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Iniciar conexão" />
+            android:text="@string/button_start" />
 
         <Button
             android:id="@+id/buttonStop"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Parar conexão" />
+            android:text="@string/button_stop" />
 
         <TextView
             android:id="@+id/textStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="Status: não configurado"
+            android:text="@string/status_not_configured"
             android:textStyle="italic" />
 
         <Button
@@ -87,7 +87,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="Ver notificações" />
+            android:text="@string/button_notifications" />
 
     </LinearLayout>
 </ScrollView>
