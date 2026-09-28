@@ -20,8 +20,11 @@ Documentação completa de cada parte:
 ```bash
 cd server
 npm install
-ADMIN_KEY=escolha-uma-chave-forte PORT=8080 node index.js
+ADMIN_KEY=escolha-uma-chave-forte-e-longa PORT=8080 node index.js
 ```
+
+A `ADMIN_KEY` é obrigatória e precisa ter pelo menos 16 caracteres — sem ela o servidor
+não sobe. Veja [`server/.env.example`](server/.env.example).
 
 Por padrão sobe em `http://0.0.0.0:8080`. Os dados ficam num banco SQLite local
 (`server/data.sqlite`, via `better-sqlite3`), não precisa instalar nada além do Node.
@@ -68,7 +71,9 @@ WebSocket. Se estiver offline, fica guardada e é entregue assim que ele reconec
 
 ### Outros endpoints (todos POST, corpo em JSON)
 
-- `/list` — lista notificações, filtrando por `status` (`pending`, `done`, `archived`)
+- `/list` — lista notificações, filtrando por `status` (`pending`, `done`, `archived`).
+  Paginado, mais recentes primeiro: `limit` (padrão 100, máximo 500) e `offset`
+  (padrão 0). Sem `limit`, vem no máximo 100 — pra ver mais, aumente o `offset`.
 - `/complete` — marca uma notificação como concluída
 - `/move` — move para outro status (ex: arquivar)
 - `/delete` — remove uma notificação (`id: "all"` remove todas)

@@ -32,6 +32,10 @@ Pergunte ao usuário (ou procure em variáveis de ambiente/config do projeto) po
 Essas três informações não mudam entre chamadas — trate como configuração (env vars,
 secrets, `.env`), nunca hardcode no código-fonte que vai pra um repositório público.
 
+A `adminKey` é a variável de ambiente `ADMIN_KEY` do servidor: obrigatória e com pelo
+menos 16 caracteres — sem ela o servidor nem sobe. Se o usuário estiver configurando o
+servidor, lembre disso.
+
 Se o `apiKey` ainda não existir, é preciso cadastrar o dispositivo uma única vez com a
 `adminKey` do servidor (isso normalmente já foi feito pelo dono antes; só faça essa
 chamada se o usuário pedir explicitamente pra cadastrar um novo dispositivo):
@@ -116,9 +120,15 @@ Todos exigem `key` e `deviceId` no corpo, iguais ao `/notify`.
 
 ```
 POST {SERVIDOR}/list
-{ "key": "...", "deviceId": "...", "status": "pending" }
+{ "key": "...", "deviceId": "...", "status": "pending", "limit": 100, "offset": 0 }
 ```
-`status` é opcional (`pending` | `done` | `archived`); se omitido, retorna todas.
+- `status` é opcional (`pending` | `done` | `archived`); se omitido, retorna todos os status.
+- A lista é **paginada**, mais recentes primeiro. `limit` padrão 100, máximo 500;
+  `offset` padrão 0. Valores fora disso voltam 400.
+- Pra buscar tudo, repita aumentando `offset` de `limit` em `limit` até vir uma página
+  com menos itens que o `limit`. Não assuma que uma chamada sem `limit` traz o
+  histórico inteiro — traz no máximo 100.
+
 Resposta: `{ "notifications": [ {...}, {...} ] }` (mesmo formato do objeto acima).
 
 **Marcar como concluída:**
