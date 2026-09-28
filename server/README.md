@@ -39,6 +39,8 @@ O painel só precisa dos arquivos da pasta `server/`, não do resto do repositó
    - `index.js`
    - `store.js`
    - `package.json`
+   - `package-lock.json`
+   - `.npmrc` (importante, ver passo 6)
    - (não precisa mandar `node_modules` nem `data.sqlite`, se tiver)
 4. Na aba **Startup** do servidor, configura:
    - **Startup Command**: `node index.js`
@@ -52,10 +54,17 @@ O painel só precisa dos arquivos da pasta `server/`, não do resto do repositó
      Pterodactyl abriu é a mesma passada nessa variável.
 6. Antes de iniciar, roda o `npm install` — geralmente dá pra fazer isso direto
    no console do Pterodactyl, ou usando a opção de "Install" do egg se ele já
-   rodar isso automaticamente. O `better-sqlite3` compila um binário nativo na
-   instalação, então garante que o egg tem um Node com suporte a
-   `node-gyp`/compilador — na grande maioria dos eggs padrão já funciona sem
-   configurar nada extra.
+   rodar isso automaticamente. **Manda o `.npmrc` junto** com os outros
+   arquivos (ele começa com ponto, então alguns clientes SFTP escondem — confere
+   se subiu).
+
+   Por quê: o `better-sqlite3` já vem com o binário pronto pra Linux, Windows e
+   Mac, mas por padrão o npm tenta recompilar ele do zero na instalação. Isso
+   exige Python e compilador C++, que muitos eggs de Node não têm — aí o
+   `npm install` falha com `gyp ERR! find Python`. O `.npmrc` tem
+   `ignore-scripts=true`, que pula essa recompilação desnecessária e usa o
+   binário pronto. Se por algum motivo não der pra mandar o `.npmrc`, o mesmo
+   efeito sai com `npm install --ignore-scripts`.
 7. Start no servidor. Se der tudo certo, o log mostra:
 
    ```
