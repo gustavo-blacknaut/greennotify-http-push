@@ -1,0 +1,17 @@
+# Node
+node_modules/
+npm-debug.log*
+server/data.json
+
+# Android / Gradle
+.gradle/
+build/
+app/build/
+*.apk
+*.aab
+local.properties
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
