@@ -1,6 +1,7 @@
 # Node
 node_modules/
 npm-debug.log*
+server/data.json*
 server/data.sqlite
 server/data.sqlite-wal
 server/data.sqlite-shm
