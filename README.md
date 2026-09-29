@@ -122,11 +122,24 @@ O app pede a permissão de notificações (Android 13+) na primeira abertura.
 
 - **Tempo real** (padrão): conexão aberta com o servidor, a notificação chega na hora.
   Consome pouco: o app manda um sinal de vida a cada 3 minutos e o servidor só pinga quem
-  ficou calado. Tem uma notificação fixa discreta (dá pra esconder: toque e segure nela e
-  desative "Conexão em segundo plano"). Em celulares Samsung/Xiaomi, toque em "Liberar em
-  segundo plano" para o sistema não matar a conexão.
-- **Economia**: sem conexão aberta nem notificação fixa. O app consulta o servidor a cada
-  ~15 minutos (mínimo do Android) e mostra o que chegou. Consumo quase zero, mas com atraso.
+  ficou calado. Enquanto está ativo, só a logo fica na barra de status (como a chave da VPN).
+  Em Samsung/Xiaomi, use "Liberar em segundo plano" nas configurações para o sistema não
+  derrubar a conexão.
+- **Economia**: sem conexão aberta. O app consulta o servidor a cada ~10 minutos e mostra
+  o que chegou. Consumo quase zero, mas com esse atraso (o Android ainda pode segurar um
+  pouco mais com o celular parado e a tela apagada).
+
+### Aviso fixo de pendentes e lembrete
+
+Enquanto houver notificações pendentes (não concluídas nem arquivadas), um aviso fixo fica
+no topo das notificações com prioridade máxima: "3 notificações pendentes · Última: ...".
+No tempo real ele fica verde, como o do Spotify, e no Android 16 o app pede para destacá-lo
+como Live Update (a Samsung costuma mostrar na tela de bloqueio/Now Bar). A cada 10 minutos,
+se ainda houver pendentes, ele toca de novo — dá para desligar em Configurações ›
+"Lembrar a cada 10 minutos".
+
+O tempo real volta sozinho depois de reiniciar o celular e depois de instalar uma
+atualização do app.
 
 ## 3. Integrando suas outras aplicações
 

@@ -15,8 +15,10 @@ fun isWebLink(link: String): Boolean =
     link.startsWith("http://", ignoreCase = true) || link.startsWith("https://", ignoreCase = true)
 
 object NotificationHelper {
-    const val CHANNEL_SERVICE = "greennotify_service"
+    const val CHANNEL_STATUS = "greennotify_status"
+    const val CHANNEL_PINNED = "greennotify_pinned"
     const val CHANNEL_ALERTS = "greennotify_alerts"
+    const val PINNED_ID = 1002
 
     // Notificações recebidas usam o id do servidor como tag: (tag, ALERT_ID) é único, sem colisão de hashCode.
     private const val ALERT_ID = 1
@@ -38,20 +40,75 @@ object NotificationHelper {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val nm = ctx.getSystemService(NotificationManager::class.java)
 
-        val service = NotificationChannel(
-            CHANNEL_SERVICE, ctx.getString(R.string.channel_service_name), NotificationManager.IMPORTANCE_MIN
-        ).apply { description = ctx.getString(R.string.channel_service_desc) }
+        // Sem pendentes: importância baixa = só a logo na barra de status (como a chave da VPN), sem som.
+        val status = NotificationChannel(
+            CHANNEL_STATUS, ctx.getString(R.string.channel_status_name), NotificationManager.IMPORTANCE_LOW
+        ).apply { description = ctx.getString(R.string.channel_status_desc); setShowBadge(false) }
+
+        // Com pendentes: aviso fixo no topo, com prioridade máxima e lembrete.
+        val pinned = NotificationChannel(
+            CHANNEL_PINNED, ctx.getString(R.string.channel_pinned_name), NotificationManager.IMPORTANCE_HIGH
+        ).apply { description = ctx.getString(R.string.channel_pinned_desc) }
 
         val alerts = NotificationChannel(
             CHANNEL_ALERTS, ctx.getString(R.string.channel_alerts_name), NotificationManager.IMPORTANCE_HIGH
         ).apply { description = ctx.getString(R.string.channel_alerts_desc) }
 
-        nm.createNotificationChannel(service)
-        nm.createNotificationChannel(alerts)
+        nm.createNotificationChannels(listOf(status, pinned, alerts))
+        // Canal antigo (importância mínima, texto "Conectado a ...") não é mais usado.
+        nm.deleteNotificationChannel("greennotify_service")
+    }
+
+    /**
+     * Aviso fixo. Sem pendentes: discreto, só a logo na barra de status e, na gaveta, uma linha
+     * (texto de conexão só se algo estiver errado). Com pendentes: prioridade máxima, no topo,
+     * "N notificações pendentes · Última: ...". [alert] faz tocar de novo (lembrete).
+     */
+    fun pinned(ctx: Context, foreground: Boolean, alert: Boolean): android.app.Notification {
+        createChannels(ctx)
+        val count = Prefs.getPendingCount(ctx)
+        val latest = Prefs.getLatestTitle(ctx)
+        val problem = Prefs.getConnStatus(ctx)
+        val open = PendingIntent.getActivity(
+            ctx, PINNED_ID, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val b = NotificationCompat.Builder(ctx, if (count > 0) CHANNEL_PINNED else CHANNEL_STATUS)
+            .setSmallIcon(R.drawable.ic_stat_greennotify)
+            .setColor(ContextCompat.getColor(ctx, R.color.green))
+            .setContentIntent(open)
+            .setOngoing(true)
+            .setShowWhen(false)
+            .setOnlyAlertOnce(!alert)
+            .setSilent(!alert)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+        if (count > 0) {
+            val title = ctx.resources.getQuantityString(R.plurals.pinned_count, count, count)
+            // Colorida (fundo verde) o título fica na cor do sistema; senão, em destaque verde.
+            val colorized = foreground && Build.VERSION.SDK_INT < 36
+            b.setContentTitle(if (colorized) title else highlight(ctx, title))
+                .setContentText(if (latest.isNotBlank()) ctx.getString(R.string.pinned_latest, latest) else problem)
+                .setLargeIcon(logo(ctx))
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            // Android 16+: pede para virar "Live Update" (Samsung: tela de bloqueio/Now Bar).
+            // Antes disso, notificação colorida de serviço fica no topo como a do Spotify.
+            if (Build.VERSION.SDK_INT >= 36) b.extras.putBoolean("android.requestPromotedOngoing", true)
+            else if (foreground) b.setColorized(true)
+        } else {
+            b.setContentTitle(ctx.getString(R.string.pinned_none))
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setCategory(NotificationCompat.CATEGORY_STATUS)
+            if (problem.isNotBlank()) b.setContentText(problem)
+        }
+        if (foreground) b.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+        return b.build()
     }
 
     /** Exibe uma notificação recebida do servidor, incluindo o motivo (reason). */
     fun showIncoming(ctx: Context, json: JSONObject) {
+        // No modo economia o serviço (que criava os canais) pode nunca ter rodado.
+        createChannels(ctx)
         val title = json.optString("title").ifBlank { ctx.getString(R.string.default_notification_title) }
         val message = json.optString("message", "")
         val reason = json.optString("reason", "")

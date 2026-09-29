@@ -22,6 +22,26 @@ object Prefs {
         prefs(ctx).edit().putString(KEY_MODE, mode).apply()
     }
 
+    /** Lembrete a cada 10 min enquanto houver pendentes (padrão: ligado). */
+    fun isRemindEnabled(ctx: Context): Boolean = prefs(ctx).getBoolean("remind", true)
+
+    fun setRemindEnabled(ctx: Context, on: Boolean) {
+        prefs(ctx).edit().putBoolean("remind", on).apply()
+    }
+
+    // Resumo mostrado no aviso fixo: quantas pendentes, a mais recente e o estado da conexão.
+    fun getPendingCount(ctx: Context): Int = prefs(ctx).getInt("pending_count", 0)
+    fun getLatestTitle(ctx: Context): String = prefs(ctx).getString("latest_title", "") ?: ""
+    fun getConnStatus(ctx: Context): String = prefs(ctx).getString("conn_status", "") ?: ""
+
+    fun setPending(ctx: Context, count: Int, latest: String) {
+        prefs(ctx).edit().putInt("pending_count", count).putString("latest_title", latest).apply()
+    }
+
+    fun setConnStatus(ctx: Context, status: String) {
+        prefs(ctx).edit().putString("conn_status", status).apply()
+    }
+
     private fun prefs(ctx: Context) =
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 

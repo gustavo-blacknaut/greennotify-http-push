@@ -188,6 +188,42 @@
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.card.MaterialCardView
+                style="?attr/materialCardViewOutlinedStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:cardCornerRadius="16dp">
+
+                <LinearLayout
+                    style="@style/GreenNotify.OptionRow"
+                    android:gravity="center_vertical">
+
+                    <ImageView
+                        style="@style/GreenNotify.OptionIcon"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_bell" />
+
+                    <LinearLayout
+                        style="@style/GreenNotify.OptionTexts"
+                        android:layout_marginEnd="8dp">
+
+                        <TextView
+                            style="@style/GreenNotify.OptionTitle"
+                            android:text="@string/remind_title" />
+
+                        <TextView
+                            style="@style/GreenNotify.OptionDesc"
+                            android:text="@string/remind_desc" />
+                    </LinearLayout>
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchRemind"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardBattery"
                 style="?attr/materialCardViewFilledStyle"
                 android:layout_width="match_parent"

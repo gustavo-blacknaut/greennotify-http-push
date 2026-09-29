@@ -11,18 +11,19 @@ object Connection {
         Prefs.setLastError(ctx, null)
         if (Prefs.getMode(ctx) == Prefs.MODE_ECONOMY) {
             ctx.stopService(Intent(ctx, NotifyConnectionService::class.java))
-            EconomyWorker.schedule(ctx)
             Prefs.setRunning(ctx, true)
         } else {
-            EconomyWorker.cancel(ctx)
             ContextCompat.startForegroundService(ctx, Intent(ctx, NotifyConnectionService::class.java))
         }
+        // Nos dois modos: checagem a cada 10 min (busca no economia; aviso fixo e lembrete sempre).
+        EconomyWorker.schedule(ctx)
     }
 
     fun stop(ctx: Context) {
         EconomyWorker.cancel(ctx)
         ctx.stopService(Intent(ctx, NotifyConnectionService::class.java))
         Prefs.setRunning(ctx, false)
+        PinnedSummary.clear(ctx)
     }
 
     fun isActive(ctx: Context): Boolean =

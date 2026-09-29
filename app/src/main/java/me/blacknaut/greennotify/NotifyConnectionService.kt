@@ -4,8 +4,6 @@ import android.app.Notification
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
-import androidx.core.app.NotificationCompat
-import androidx.core.content.ContextCompat
 import okhttp3.*
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okio.ByteString
@@ -80,27 +78,14 @@ class NotifyConnectionService : Service() {
         stopSelf()
     }
 
-    // Uma linha só, silenciosa, sem hora e no fim da lista; tocar abre o app.
+    // A notificação do serviço é o aviso fixo (PinnedSummary): logo discreta sem pendentes,
+    // painel de prioridade máxima com pendentes. Estado da conexão só aparece se houver problema.
     private fun buildForegroundNotification(status: String): Notification {
-        val open = android.app.PendingIntent.getActivity(
-            this, 0, Intent(this, MainActivity::class.java),
-            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
-        )
-        return NotificationCompat.Builder(this, NotificationHelper.CHANNEL_SERVICE)
-            .setSmallIcon(R.drawable.ic_stat_greennotify)
-            .setColor(ContextCompat.getColor(this, R.color.green))
-            .setContentTitle(status)
-            .setContentIntent(open)
-            .setOngoing(true)
-            .setSilent(true)
-            .setShowWhen(false)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .setPriority(NotificationCompat.PRIORITY_MIN)
-            // Sem isso o Android 12+ pode adiar a exibição em até 10s.
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .build()
+        Prefs.setConnStatus(this, status)
+        return NotificationHelper.pinned(this, foreground = true, alert = false)
     }
 
+    /** [status] vazio = conectado e tudo certo (não mostra texto nenhum). */
     private fun updateStatus(status: String) {
         lastStatus = status
         val nm = getSystemService(android.app.NotificationManager::class.java)
@@ -137,7 +122,8 @@ class NotifyConnectionService : Service() {
 
             override fun onOpen(webSocket: WebSocket, response: Response) = onMain(webSocket) {
                 reconnectDelayMs = 2000L
-                updateStatus(getString(R.string.service_connected, deviceId))
+                updateStatus("")
+                PinnedSummary.refreshAsync(this@NotifyConnectionService)
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) = onMain(webSocket) {
@@ -176,6 +162,7 @@ class NotifyConnectionService : Service() {
             when (json.optString("type")) {
                 "notification" -> {
                     NotificationHelper.showIncoming(this, json)
+                    PinnedSummary.refreshAsync(this)
                     val id = json.optString("id")
                     if (id.isNotBlank()) {
                         webSocket?.send(JSONObject().put("type", "ack").put("id", id).toString())

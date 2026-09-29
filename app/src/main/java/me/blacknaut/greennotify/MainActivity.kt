@@ -110,6 +110,7 @@ class MainActivity : AppCompatActivity() {
         Prefs.registerListener(this, prefsListener)
         refreshStatus()
         load()
+        PinnedSummary.refreshAsync(this)
     }
 
     override fun onPause() {
@@ -236,6 +237,7 @@ class MainActivity : AppCompatActivity() {
                 adapter.removeItem(item.id)
                 if (target != "pending") NotificationHelper.cancel(this, item.id)
                 updateEmpty()
+                PinnedSummary.refreshAsync(this)
             } else {
                 Snackbar.make(recycler, error ?: getString(R.string.error_action), Snackbar.LENGTH_LONG).show()
             }
@@ -254,6 +256,7 @@ class MainActivity : AppCompatActivity() {
                 return@move
             }
             NotificationHelper.cancel(this, item.id)
+            PinnedSummary.refreshAsync(this)
             Snackbar.make(recycler, R.string.snack_archived, Snackbar.LENGTH_LONG)
                 .setAction(R.string.snack_undo) {
                     ApiClient.move(this, item.id, item.status) { _, _ -> if (!isDestroyed) load() }
@@ -272,7 +275,7 @@ class MainActivity : AppCompatActivity() {
                 override fun onDismissed(bar: Snackbar?, event: Int) {
                     if (event == DISMISS_EVENT_ACTION) return
                     NotificationHelper.cancel(applicationContext, item.id)
-                    ApiClient.delete(applicationContext, item.id) { _, _ -> }
+                    ApiClient.delete(applicationContext, item.id) { _, _ -> PinnedSummary.refreshAsync(applicationContext) }
                 }
             }).show()
     }

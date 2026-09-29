@@ -43,6 +43,9 @@ class SettingsActivity : AppCompatActivity() {
         editDeviceId.setText(Prefs.getDeviceId(this))
         editApiKey.setText(Prefs.getApiKey(this))
         selectMode(Prefs.getMode(this))
+        val switchRemind = findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.switchRemind)
+        switchRemind.isChecked = Prefs.isRemindEnabled(this)
+        switchRemind.setOnCheckedChangeListener { _, on -> Prefs.setRemindEnabled(this, on) }
 
         cardRealtime.setOnClickListener { selectMode(Prefs.MODE_REALTIME) }
         cardEconomy.setOnClickListener { selectMode(Prefs.MODE_ECONOMY) }
