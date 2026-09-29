@@ -12,12 +12,26 @@ android {
         applicationId = "me.blacknaut.greennotify"
         minSdk = 24
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.0.1"
+    }
+
+    // Assinatura só via variáveis de ambiente: a keystore e a senha nunca entram no repositório.
+    val keystorePath = System.getenv("GREENNOTIFY_KEYSTORE")
+    signingConfigs {
+        if (keystorePath != null) {
+            create("release") {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("GREENNOTIFY_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("GREENNOTIFY_KEY_ALIAS") ?: "greennotify"
+                keyPassword = System.getenv("GREENNOTIFY_KEY_PASSWORD") ?: storePassword
+            }
+        }
     }
 
     buildTypes {
         release {
+            if (keystorePath != null) signingConfig = signingConfigs.getByName("release")
             optimization {
                 enable = false
             }
