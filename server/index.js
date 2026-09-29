@@ -1,13 +1,29 @@
+const fs = require('fs');
+const path = require('path');
+
+// Painéis como o Pterodactyl nem sempre deixam criar variáveis de ambiente: aceita um .env ao lado.
+// Variáveis já definidas no ambiente têm prioridade sobre o arquivo.
+function loadEnvFile(file) {
+  if (!fs.existsSync(file)) return;
+  for (const line of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
+    const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
+    if (!m || process.env[m[1]] !== undefined) continue;
+    process.env[m[1]] = m[2].replace(/^(['"])(.*)\1$/, '$2');
+  }
+}
+loadEnvFile(path.join(__dirname, '.env'));
+
 const express = require('express');
 const http = require('http');
 const { WebSocketServer } = require('ws');
 const rateLimit = require('express-rate-limit');
 const store = require('./store');
 
-const PORT = process.env.PORT || 8080;
+// SERVER_PORT é a porta que o Pterodactyl aloca para o servidor.
+const PORT = process.env.PORT || process.env.SERVER_PORT || 8080;
 const ADMIN_KEY = process.env.ADMIN_KEY;
 if (!ADMIN_KEY || ADMIN_KEY.length < 16) {
-  console.error('ADMIN_KEY não definida ou curta demais (mínimo 16 caracteres). Defina a variável de ambiente ADMIN_KEY.');
+  console.error('ADMIN_KEY não definida ou curta demais (mínimo 16 caracteres). Defina ADMIN_KEY no ambiente ou no arquivo .env.');
   process.exit(1);
 }
 

@@ -33,46 +33,41 @@ O painel só precisa dos arquivos da pasta `server/`, não do resto do repositó
 1. No painel, cria um servidor novo usando o egg **Generic Node.js** (ou "Node.js"
    dependendo de como tá nomeado no seu Pterodactyl). Escolhe uma versão do Node
    18 ou mais nova.
-2. Depois que o servidor for criado, entra no File Manager dele (ou conecta via
-   SFTP, é mais rápido pra mandar vários arquivos).
-3. Manda pra dentro do `/home/container` só o que tá dentro de `server/`:
-   - `index.js`
-   - `store.js`
-   - `package.json`
-   - `package-lock.json`
-   - `.npmrc` (importante, ver passo 6)
+2. Monta o `.env`: copia o `.env.example` pra `.env` e coloca uma `ADMIN_KEY` com
+   pelo menos 16 caracteres. Ela autoriza cadastrar dispositivo novo no `/register`.
+   A porta não precisa configurar: o servidor usa a `SERVER_PORT` que o próprio
+   Pterodactyl define. (Se o seu painel deixar criar variáveis, pode pôr
+   `ADMIN_KEY` lá em vez do `.env`; variável do painel vence o arquivo.)
+3. No File Manager do servidor (ou via SFTP), manda pra dentro do `/home/container`:
+   - `index.js`, `store.js`, `package.json`, `package-lock.json`
+   - `.npmrc` (importante, ver abaixo)
+   - `.env`
    - (não precisa mandar `node_modules` nem `data.sqlite`, se tiver)
-4. Na aba **Startup** do servidor, configura:
-   - **Startup Command**: `node index.js`
-   - Se o egg pedir "Main File" ou algo assim, coloca `index.js`
-5. Na aba **Variáveis** (Startup também, geralmente), cria/edita:
-   - `ADMIN_KEY` → coloca uma chave forte, é ela que autoriza cadastrar novo
-     dispositivo no `/register`. Não deixa o valor padrão do código.
-   - Se o egg tiver variável de porta (tipo `SERVER_PORT` ou `PORT`), confere se
-     bate com a porta alocada pro seu servidor no Pterodactyl. Se não tiver, o
-     código já lê `process.env.PORT`, então só precisa garantir que a porta que o
-     Pterodactyl abriu é a mesma passada nessa variável.
-6. Antes de iniciar, roda o `npm install` — geralmente dá pra fazer isso direto
-   no console do Pterodactyl, ou usando a opção de "Install" do egg se ele já
-   rodar isso automaticamente. **Manda o `.npmrc` junto** com os outros
-   arquivos (ele começa com ponto, então alguns clientes SFTP escondem — confere
-   se subiu).
 
-   Por quê: o `better-sqlite3` já vem com o binário pronto pra Linux, Windows e
+   Mais fácil: compacta tudo num `.zip`, sobe o zip pelo File Manager e usa
+   **Unarchive**. Confere se `.npmrc` e `.env` apareceram (arquivos que começam
+   com ponto às vezes ficam escondidos no cliente SFTP).
+4. Na aba **Startup**, o arquivo principal (Main File / Startup Command) tem que
+   ser `index.js`. No egg Generic Node.js já é o padrão.
+5. O egg costuma rodar o `npm install` sozinho ao iniciar quando tem
+   `package.json`. Se o seu não rodar, roda `npm install` pelo console uma vez.
+
+   Por que o `.npmrc`: o `better-sqlite3` já vem com o binário pronto pra Linux, Windows e
    Mac, mas por padrão o npm tenta recompilar ele do zero na instalação. Isso
    exige Python e compilador C++, que muitos eggs de Node não têm — aí o
    `npm install` falha com `gyp ERR! find Python`. O `.npmrc` tem
    `ignore-scripts=true`, que pula essa recompilação desnecessária e usa o
    binário pronto. Se por algum motivo não der pra mandar o `.npmrc`, o mesmo
    efeito sai com `npm install --ignore-scripts`.
-7. Start no servidor. Se der tudo certo, o log mostra:
+6. Start no servidor. Se der tudo certo, o log mostra:
 
    ```
    GreenNotify server rodando em http://0.0.0.0:PORTA (HTTP puro, sem HTTPS)
    ```
 
-8. Testa de fora acessando `http://IP_DO_SEU_VPS:PORTA/health` pra confirmar que
-   a porta tá liberada no firewall do painel/host.
+7. Testa de fora acessando `http://IP_DO_SEU_VPS:PORTA/health` pra confirmar que
+   a porta tá liberada no firewall do painel/host. O IP e a porta aparecem no
+   painel, em **Network** / alocação do servidor.
 
 ## Cadastrando o celular
 

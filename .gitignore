@@ -2,6 +2,8 @@
 node_modules/
 npm-debug.log*
 server/data.json*
+server/.env
+.env
 server/data.sqlite
 server/data.sqlite-wal
 server/data.sqlite-shm
@@ -18,3 +20,8 @@ local.properties
 captures/
 .externalNativeBuild/
 .cxx/
+
+# Assinatura do app (nunca versionar)
+*.keystore
+*.keystore.*
+*.jks
