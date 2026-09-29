@@ -28,6 +28,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        applySystemBarInsets(findViewById(android.R.id.content))
 
         editServerUrl = findViewById(R.id.editServerUrl)
         editDeviceId = findViewById(R.id.editDeviceId)

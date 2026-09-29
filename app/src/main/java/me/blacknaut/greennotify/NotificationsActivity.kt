@@ -23,6 +23,7 @@ class NotificationsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_notifications)
+        applySystemBarInsets(findViewById(android.R.id.content))
         setTitle(R.string.title_notifications)
 
         val recycler = findViewById<RecyclerView>(R.id.recyclerNotifications)
