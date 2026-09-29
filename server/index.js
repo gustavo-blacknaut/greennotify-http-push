@@ -45,6 +45,9 @@ wss.on('connection', (ws, req) => {
     return;
   }
 
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
+
   if (!connections.has(deviceId)) connections.set(deviceId, new Set());
   connections.get(deviceId).add(ws);
   console.log(`[ws] dispositivo conectado: ${deviceId}`);
@@ -67,6 +70,20 @@ wss.on('connection', (ws, req) => {
     console.log(`[ws] dispositivo desconectado: ${deviceId}`);
   });
 });
+
+// Celular que some sem fechar o TCP (troca de rede, bateria, reboot) deixa a conexão meio aberta:
+// o servidor acharia que ainda entrega. Quem não responder ao ping anterior é derrubado.
+const HEARTBEAT_MS = Number(process.env.HEARTBEAT_MS) || 30000;
+const heartbeat = setInterval(() => {
+  for (const ws of wss.clients) {
+    if (!ws.isAlive) {
+      ws.terminate();
+      continue;
+    }
+    ws.isAlive = false;
+    ws.ping();
+  }
+}, HEARTBEAT_MS);
 
 // ---------- HTTP: tudo via POST (corpo em JSON) ----------
 
@@ -220,6 +237,7 @@ server.listen(PORT, () => {
 
 function shutdown(signal) {
   console.log(`${signal} recebido, encerrando...`);
+  clearInterval(heartbeat);
   for (const ws of wss.clients) ws.close(1001, 'server shutting down');
   server.close(() => {
     store.close();

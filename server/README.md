@@ -213,6 +213,18 @@ curl -X POST "http://SEU_SERVIDOR:PORTA/delete" \
   -d '{"key":"SUA_API_KEY","deviceId":"meu-celular","id":"ID_DA_NOTIFICACAO"}'
 ```
 
+## Conexões que caem sem avisar
+
+Celular que troca de Wi‑Fi pra 4G, fica sem bateria ou reinicia costuma sumir sem
+fechar a conexão direito. Pra não ficar achando que está entregando pra ninguém, o
+servidor manda um ping pra cada celular a cada 30 segundos e derruba quem não
+respondeu o anterior — então em até ~1 minuto a conexão morta some.
+
+Nada se perde nesse meio tempo: notificação só conta como entregue quando o app
+confirma o recebimento. O que não foi confirmado é reenviado automaticamente quando o
+celular reconecta. Por isso o `delivered: true` na resposta do `/notify` quer dizer
+"mandei pra uma conexão aberta agora", não "o celular já mostrou".
+
 ## Sobre o data.sqlite
 
 O servidor cria um arquivo `data.sqlite` (mais `data.sqlite-wal` e
