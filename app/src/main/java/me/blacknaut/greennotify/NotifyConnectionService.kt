@@ -34,7 +34,8 @@ class NotifyConnectionService : Service() {
         NotificationHelper.createChannels(this)
         client = OkHttpClient.Builder()
             .readTimeout(0, TimeUnit.MILLISECONDS)
-            .pingInterval(25, TimeUnit.SECONDS)
+            // Cada ping acorda o rádio: 3 min mantém a conexão viva no Wi‑Fi/4G sem gastar bateria à toa.
+            .pingInterval(3, TimeUnit.MINUTES)
             .build()
     }
 
@@ -79,13 +80,21 @@ class NotifyConnectionService : Service() {
         stopSelf()
     }
 
+    // Uma linha só, silenciosa, sem hora e no fim da lista; tocar abre o app.
     private fun buildForegroundNotification(status: String): Notification {
+        val open = android.app.PendingIntent.getActivity(
+            this, 0, Intent(this, MainActivity::class.java),
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+        )
         return NotificationCompat.Builder(this, NotificationHelper.CHANNEL_SERVICE)
             .setSmallIcon(R.drawable.ic_stat_greennotify)
             .setColor(ContextCompat.getColor(this, R.color.green))
-            .setContentTitle(getString(R.string.service_title))
-            .setContentText(status)
+            .setContentTitle(status)
+            .setContentIntent(open)
             .setOngoing(true)
+            .setSilent(true)
+            .setShowWhen(false)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setPriority(NotificationCompat.PRIORITY_MIN)
             // Sem isso o Android 12+ pode adiar a exibição em até 10s.
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
@@ -197,7 +206,8 @@ class NotifyConnectionService : Service() {
         val ws = webSocket
         webSocket = null
         ws?.close(1000, "service stopped")
-        Prefs.setRunning(this, false)
+        // Ao trocar para o modo economia o serviço é parado, mas o app continua "rodando" (via WorkManager).
+        if (Prefs.getMode(this) == Prefs.MODE_REALTIME) Prefs.setRunning(this, false)
         super.onDestroy()
     }
 

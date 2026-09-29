@@ -68,6 +68,31 @@
             android:layout_height="wrap_content"
             android:hint="@string/hint_api_key" />
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/label_mode"
+            android:textSize="12sp" />
+
+        <RadioGroup
+            android:id="@+id/radioMode"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <RadioButton
+                android:id="@+id/radioRealtime"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/mode_realtime" />
+
+            <RadioButton
+                android:id="@+id/radioEconomy"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/mode_economy" />
+        </RadioGroup>
+
         <Button
             android:id="@+id/buttonSave"
             android:layout_width="match_parent"
@@ -96,6 +121,23 @@
             android:layout_marginTop="16dp"
             android:text="@string/status_not_configured"
             android:textStyle="italic" />
+
+        <Button
+            android:id="@+id/buttonBattery"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/button_battery"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/textHint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/hint_hide_fixed"
+            android:textSize="12sp" />
 
         <Button
             android:id="@+id/buttonNotifications"

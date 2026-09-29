@@ -18,6 +18,12 @@
     <string name="status_stopped">Status: parado</string>
     <string name="toast_config_saved">Configuração salva</string>
     <string name="toast_save_first">Salve a configuração primeiro</string>
+    <string name="label_mode">Modo de recebimento</string>
+    <string name="mode_realtime">Tempo real: chega na hora, com baixo consumo de bateria e internet</string>
+    <string name="mode_economy">Economia: verifica a cada ~15 min, consumo mínimo e sem notificação fixa</string>
+    <string name="status_economy">Status: economia, verificando a cada ~15 min</string>
+    <string name="button_battery">Liberar em segundo plano (recomendado)</string>
+    <string name="hint_hide_fixed">Para esconder a notificação fixa do modo tempo real: toque e segure nela e desative \"Conexão em segundo plano\". O app continua recebendo normalmente.</string>
 
     <!-- Histórico -->
     <string name="title_notifications">Notificações</string>
@@ -43,13 +49,13 @@
     <string name="default_notification_title">Notificação</string>
     <string name="reason_format">Motivo: %1$s</string>
     <string name="origin_format">Origem: %1$s</string>
+    <string name="subject_general">Geral</string>
     <plurals name="summary_count">
         <item quantity="one">%d notificação nova</item>
         <item quantity="other">%d notificações novas</item>
     </plurals>
 
     <!-- Serviço de conexão -->
-    <string name="service_title">GreenNotify ativo</string>
     <string name="service_connecting">Conectando…</string>
     <string name="service_not_configured">Não configurado</string>
     <string name="service_connected">Conectado a %1$s</string>

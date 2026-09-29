@@ -9,6 +9,7 @@ data class NotificationItem(
     val reason: String,
     val app: String,
     val link: String,
+    val topic: String,
     val status: String,
     val createdAt: Long
 ) {
@@ -20,6 +21,7 @@ data class NotificationItem(
             reason = json.optString("reason"),
             app = json.optString("app"),
             link = json.optString("link"),
+            topic = json.optString("topic"),
             status = json.optString("status", "pending"),
             createdAt = json.optLong("createdAt")
         )

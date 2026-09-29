@@ -63,6 +63,8 @@ curl -X POST "http://SEU_SERVIDOR:8080/notify" \
 - `deviceId` — obrigatório
 - `title` / `message` / `reason` — título, mensagem e o motivo (destacado na notificação)
 - `app` — nome de quem está enviando (aparece como "Origem")
+- `topic` — assunto opcional: notificações com o mesmo `topic` ficam empilhadas juntas no
+  celular (ex: `"Ticket #123"`). Sem ele, o app agrupa pelo `app`.
 - `link` — link opcional (ticket, canal do Discord, pedido, etc). Ao tocar na notificação
   ou no item da lista, o link abre direto no celular.
 
@@ -104,6 +106,16 @@ Projeto Android Studio (Kotlin) já dentro deste repositório. Abra a pasta raiz
    como concluída ou arquivar direto pela lista.
 
 O app pede a permissão de notificações (Android 13+) na primeira abertura.
+
+### Modos de recebimento
+
+- **Tempo real** (padrão): conexão aberta com o servidor, a notificação chega na hora.
+  Consome pouco: o app manda um sinal de vida a cada 3 minutos e o servidor só pinga quem
+  ficou calado. Tem uma notificação fixa discreta (dá pra esconder: toque e segure nela e
+  desative "Conexão em segundo plano"). Em celulares Samsung/Xiaomi, toque em "Liberar em
+  segundo plano" para o sistema não matar a conexão.
+- **Economia**: sem conexão aberta nem notificação fixa. O app consulta o servidor a cada
+  ~15 minutos (mínimo do Android) e mostra o que chegou. Consumo quase zero, mas com atraso.
 
 ## 3. Integrando suas outras aplicações
 

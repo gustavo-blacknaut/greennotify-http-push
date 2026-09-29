@@ -65,7 +65,24 @@ object ApiClient {
         })
     }
 
-    private fun authBody(ctx: Context): JSONObject {
+    /** Versão bloqueante, para rodar em thread de fundo (WorkManager). null = falha de rede ou resposta não-2xx. */
+    fun postSync(ctx: Context, path: String, body: JSONObject): JSONObject? {
+        val serverUrl = Prefs.getServerUrl(ctx)
+        if (serverUrl.isBlank()) return null
+        return try {
+            val request = Request.Builder()
+                .url(toHttpUrl(serverUrl) + path)
+                .post(body.toString().toRequestBody(jsonMedia))
+                .build()
+            client.newCall(request).execute().use { r ->
+                if (!r.isSuccessful) null else r.body?.string()?.let(::JSONObject)
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    fun authBody(ctx: Context): JSONObject {
         return JSONObject()
             .put("key", Prefs.getApiKey(ctx))
             .put("deviceId", Prefs.getDeviceId(ctx))

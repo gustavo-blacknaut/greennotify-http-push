@@ -10,6 +10,17 @@ object Prefs {
     private const val KEY_API_KEY = "api_key"
     const val KEY_RUNNING = "running"
     const val KEY_LAST_ERROR = "last_error"
+    private const val KEY_MODE = "mode"
+
+    const val MODE_REALTIME = "realtime"
+    const val MODE_ECONOMY = "economy"
+
+    /** Tempo real (conexão aberta) ou economia (consulta periódica, sem serviço fixo). */
+    fun getMode(ctx: Context): String = prefs(ctx).getString(KEY_MODE, MODE_REALTIME) ?: MODE_REALTIME
+
+    fun setMode(ctx: Context, mode: String) {
+        prefs(ctx).edit().putString(KEY_MODE, mode).apply()
+    }
 
     private fun prefs(ctx: Context) =
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)

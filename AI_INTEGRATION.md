@@ -68,7 +68,8 @@ Corpo:
   "message": "Texto principal da notificação",
   "reason": "Por que essa notificação está sendo enviada",
   "app": "Nome da sua aplicação",
-  "link": "https://opcional.com/algum-lugar"
+  "link": "https://opcional.com/algum-lugar",
+  "topic": "Assunto opcional para agrupar"
 }
 ```
 
@@ -81,6 +82,7 @@ Corpo:
 | `reason`   | string | não | aparece como "Motivo: ..." — use pra explicar o porquê do alerta, não repita o `message` |
 | `app`      | string | não | aparece como "Origem" — normalmente o nome da aplicação/serviço que está chamando |
 | `link`     | string | não | URL completa (com `https://` ou `http://`). Se enviado, tocar na notificação ou no item da lista abre esse link direto |
+| `topic`    | string | não | Assunto. Notificações com o mesmo `topic` ficam empilhadas numa entrada só no celular (use um identificador estável: `"Ticket #123"`, `"Pedido #55"`, `"Backup diário"`). Sem `topic`, o app agrupa pelo `app` |
 
 Resposta (200):
 
@@ -107,6 +109,8 @@ Resposta (200):
 WebSocket. `delivered: false` só quer dizer que ele estava offline — a notificação
 **não se perde**, fica guardada e chega assim que o app reconectar. Não é necessário
 reenviar.
+
+Codificação: mande o corpo em UTF-8 (`Content-Type: application/json; charset=utf-8`). O servidor também aceita Windows-1252 (padrão do PowerShell 5) e converte, então acentos chegam certos nos dois casos.
 
 Erros possíveis:
 - `401 { "error": "deviceId ou key inválidos" }` — key errada ou deviceId não cadastrado

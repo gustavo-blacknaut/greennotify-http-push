@@ -39,7 +39,7 @@ class NotificationAdapter(
         val ctx = holder.itemView.context
         holder.title.text = item.title
         val date = if (item.createdAt > 0) dateFormat.format(Date(item.createdAt)) else ""
-        holder.appDate.text = listOf(item.app, date).filter { it.isNotBlank() }.joinToString(" • ")
+        holder.appDate.text = listOf(item.topic, item.app, date).distinct().filter { it.isNotBlank() }.joinToString(" • ")
         holder.message.visibility = if (item.message.isBlank()) View.GONE else View.VISIBLE
         holder.message.text = item.message
         holder.reason.visibility = if (item.reason.isBlank()) View.GONE else View.VISIBLE
