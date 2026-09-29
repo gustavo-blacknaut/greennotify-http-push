@@ -20,6 +20,9 @@ object NotificationHelper {
     // Notificações recebidas usam o id do servidor como tag: (tag, ALERT_ID) é único, sem colisão de hashCode.
     private const val ALERT_ID = 1
     private const val SERVICE_STOPPED_TAG = "greennotify:service-stopped"
+    private const val SUMMARY_TAG = "greennotify:summary"
+    private const val GROUP_ALERTS = "greennotify.alerts"
+    private const val SUMMARY_REQUEST = -1
 
     fun createChannels(ctx: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -74,9 +77,42 @@ object NotificationHelper {
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(pendingIntent)
+            .setGroup(GROUP_ALERTS)
             .build()
 
-        ctx.getSystemService(NotificationManager::class.java).notify(id, ALERT_ID, notification)
+        val nm = ctx.getSystemService(NotificationManager::class.java)
+        nm.notify(id, ALERT_ID, notification)
+        postGroupSummary(ctx, nm)
+    }
+
+    // Grupo próprio com resumo: várias notificações viram uma pilha expansível e não se misturam
+    // com a notificação fixa do serviço (o agrupamento automático do Android faria o toque abrir o app).
+    private fun postGroupSummary(ctx: Context, nm: NotificationManager) {
+        val count = alertIds(nm).size
+        if (count == 0) return
+        val openHistory = PendingIntent.getActivity(
+            ctx, SUMMARY_REQUEST, Intent(ctx, NotificationsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val summary = NotificationCompat.Builder(ctx, CHANNEL_ALERTS)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(ctx.resources.getQuantityString(R.plurals.summary_count, count, count))
+            .setGroup(GROUP_ALERTS)
+            .setGroupSummary(true)
+            .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
+            .setAutoCancel(true)
+            .setContentIntent(openHistory)
+            .build()
+        nm.notify(SUMMARY_TAG, ALERT_ID, summary)
+    }
+
+    private fun alertIds(nm: NotificationManager): List<String> =
+        nm.activeNotifications.filter {
+            it.id == ALERT_ID && it.tag != null && it.tag != SUMMARY_TAG && it.tag != SERVICE_STOPPED_TAG
+        }.map { it.tag }
+
+    private fun refreshSummary(ctx: Context, nm: NotificationManager) {
+        if (alertIds(nm).isEmpty()) nm.cancel(SUMMARY_TAG, ALERT_ID) else postGroupSummary(ctx, nm)
     }
 
     /** Avisa que o serviço parou sozinho; a notificação fixa do serviço some junto com ele. */
@@ -96,10 +132,15 @@ object NotificationHelper {
     }
 
     fun cancel(ctx: Context, id: String) {
-        ctx.getSystemService(NotificationManager::class.java).cancel(id, ALERT_ID)
+        val nm = ctx.getSystemService(NotificationManager::class.java)
+        nm.cancel(id, ALERT_ID)
+        refreshSummary(ctx, nm)
     }
 
+    /** Remove só as notificações recebidas; a fixa do serviço e o aviso de parada ficam. */
     fun cancelAll(ctx: Context) {
-        ctx.getSystemService(NotificationManager::class.java).cancelAll()
+        val nm = ctx.getSystemService(NotificationManager::class.java)
+        alertIds(nm).forEach { nm.cancel(it, ALERT_ID) }
+        nm.cancel(SUMMARY_TAG, ALERT_ID)
     }
 }

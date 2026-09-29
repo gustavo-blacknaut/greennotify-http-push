@@ -22,6 +22,7 @@ class NotifyConnectionService : Service() {
     // Estado só é tocado na main thread: os callbacks do OkHttp são repassados via handler.
     private var webSocket: WebSocket? = null
     private var connectedConfig: String? = null
+    private var lastStatus: String? = null
     private var shouldReconnect = true
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private var reconnectDelayMs = 2000L
@@ -38,7 +39,8 @@ class NotifyConnectionService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // startForeground antes de qualquer saída: startForegroundService exige a chamada em até 5s.
-        startForeground(NOTIF_ID, buildForegroundNotification(getString(R.string.service_connecting)))
+        // Reusa o último status: um "Iniciar" repetido não reconecta, então não pode voltar a "Conectando…".
+        startForeground(NOTIF_ID, buildForegroundNotification(lastStatus ?: getString(R.string.service_connecting)))
         if (!Prefs.isConfigured(this)) {
             stopSelf()
             return START_NOT_STICKY
@@ -50,6 +52,7 @@ class NotifyConnectionService : Service() {
         if (webSocket == null || connectedConfig != currentConfig()) {
             dropConnection()
             reconnectDelayMs = 2000L
+            updateStatus(getString(R.string.service_connecting))
             connect()
         }
         return START_STICKY
@@ -82,10 +85,13 @@ class NotifyConnectionService : Service() {
             .setContentText(status)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_MIN)
+            // Sem isso o Android 12+ pode adiar a exibição em até 10s.
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }
 
     private fun updateStatus(status: String) {
+        lastStatus = status
         val nm = getSystemService(android.app.NotificationManager::class.java)
         nm.notify(NOTIF_ID, buildForegroundNotification(status))
     }

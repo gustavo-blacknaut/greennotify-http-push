@@ -42,6 +42,10 @@
     <string name="default_notification_title">Notificação</string>
     <string name="reason_format">Motivo: %1$s</string>
     <string name="origin_format">Origem: %1$s</string>
+    <plurals name="summary_count">
+        <item quantity="one">%d notificação nova</item>
+        <item quantity="other">%d notificações novas</item>
+    </plurals>
 
     <!-- Serviço de conexão -->
     <string name="service_title">GreenNotify ativo</string>
