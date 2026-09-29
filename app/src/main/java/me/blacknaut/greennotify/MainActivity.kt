@@ -1,35 +1,50 @@
 package me.blacknaut.greennotify
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.PowerManager
-import android.provider.Settings
 import android.view.View
-import android.widget.Button
-import android.widget.EditText
-import android.widget.RadioGroup
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.chip.ChipGroup
+import com.google.android.material.color.MaterialColors
+import com.google.android.material.snackbar.Snackbar
+import org.json.JSONArray
 
+/** Tela inicial: estado da conexão no topo e a lista de notificações logo abaixo. */
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var editServerUrl: EditText
-    private lateinit var editDeviceId: EditText
-    private lateinit var editApiKey: EditText
-    private lateinit var radioMode: RadioGroup
-    private lateinit var textStatus: TextView
-    private lateinit var buttonBattery: Button
-    private lateinit var textHint: TextView
+    private lateinit var adapter: NotificationAdapter
+    private lateinit var recycler: RecyclerView
+    private lateinit var swipeRefresh: SwipeRefreshLayout
+    private lateinit var emptyState: View
+    private lateinit var textEmptyTitle: TextView
+    private lateinit var textEmptySubtitle: TextView
+    private lateinit var statusDot: View
+    private lateinit var textHeaderStatus: TextView
+    private lateinit var imageStatus: ImageView
+    private lateinit var textStatusTitle: TextView
+    private lateinit var textStatusSubtitle: TextView
+    private lateinit var buttonToggle: MaterialButton
 
-    // O serviço grava running/last_error ao parar sozinho: atualiza a tela mesmo com ela aberta.
+    private var currentStatus = "pending"
+    private var loading = false
+    private var hasMore = true
+
+    // O serviço grava running/last_error sozinho: atualiza o cartão mesmo com a tela aberta.
     private val prefsListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == Prefs.KEY_RUNNING || key == Prefs.KEY_LAST_ERROR) refreshStatus()
     }
@@ -39,139 +54,248 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         applySystemBarInsets(findViewById(android.R.id.content))
 
-        editServerUrl = findViewById(R.id.editServerUrl)
-        editDeviceId = findViewById(R.id.editDeviceId)
-        editApiKey = findViewById(R.id.editApiKey)
-        radioMode = findViewById(R.id.radioMode)
-        textStatus = findViewById(R.id.textStatus)
-        buttonBattery = findViewById(R.id.buttonBattery)
-        textHint = findViewById(R.id.textHint)
+        statusDot = findViewById(R.id.statusDot)
+        textHeaderStatus = findViewById(R.id.textHeaderStatus)
+        imageStatus = findViewById(R.id.imageStatus)
+        textStatusTitle = findViewById(R.id.textStatusTitle)
+        textStatusSubtitle = findViewById(R.id.textStatusSubtitle)
+        buttonToggle = findViewById(R.id.buttonToggle)
+        emptyState = findViewById(R.id.emptyState)
+        textEmptyTitle = findViewById(R.id.textEmptyTitle)
+        textEmptySubtitle = findViewById(R.id.textEmptySubtitle)
 
-        editServerUrl.setText(Prefs.getServerUrl(this))
-        editDeviceId.setText(Prefs.getDeviceId(this))
-        editApiKey.setText(Prefs.getApiKey(this))
-        radioMode.check(if (Prefs.getMode(this) == Prefs.MODE_ECONOMY) R.id.radioEconomy else R.id.radioRealtime)
-        radioMode.setOnCheckedChangeListener { _, _ -> refreshExtras() }
-        refreshStatus()
+        findViewById<View>(R.id.buttonSettings).setOnClickListener { openSettings() }
+        buttonToggle.setOnClickListener { onToggle() }
+
+        findViewById<ChipGroup>(R.id.chipsFilter).setOnCheckedStateChangeListener { _, ids ->
+            currentStatus = when (ids.firstOrNull()) {
+                R.id.chipDone -> "done"
+                R.id.chipArchived -> "archived"
+                else -> "pending"
+            }
+            load()
+        }
+
+        recycler = findViewById(R.id.recyclerNotifications)
+        recycler.layoutManager = LinearLayoutManager(this)
+        adapter = NotificationAdapter(
+            mutableListOf(),
+            onOpenLink = { openLink(it) },
+            onPrimary = { item -> changeStatus(item, if (item.status == "done") "pending" else "done") },
+            onSecondary = { item -> changeStatus(item, if (item.status == "archived") "pending" else "archived") }
+        )
+        recycler.adapter = adapter
+        recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
+                if (dy > 0 && !rv.canScrollVertically(1) && hasMore) fetchPage(reset = false)
+            }
+        })
+        ItemTouchHelper(SwipeActions(this,
+            canArchive = { currentStatus != "archived" },
+            onArchive = { pos -> swipeArchive(pos) },
+            onDelete = { pos -> swipeDelete(pos) }
+        )).attachToRecyclerView(recycler)
+
+        swipeRefresh = findViewById(R.id.swipeRefresh)
+        swipeRefresh.setColorSchemeColors(MaterialColors.getColor(recycler, androidx.appcompat.R.attr.colorPrimary))
+        swipeRefresh.setOnRefreshListener { load() }
+        // O filho direto é um FrameLayout: sem isso o "puxar para atualizar" dispara no meio da lista.
+        swipeRefresh.setOnChildScrollUpCallback { _, _ -> recycler.canScrollVertically(-1) }
 
         requestNotificationPermissionIfNeeded()
-
-        findViewById<Button>(R.id.buttonSave).setOnClickListener {
-            saveForm()
-            Toast.makeText(this, R.string.toast_config_saved, Toast.LENGTH_SHORT).show()
-            refreshStatus()
-        }
-
-        findViewById<Button>(R.id.buttonStart).setOnClickListener {
-            saveForm()
-            if (!Prefs.isConfigured(this)) {
-                Toast.makeText(this, R.string.toast_save_first, Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            if (Prefs.getMode(this) == Prefs.MODE_ECONOMY) {
-                stopService(Intent(this, NotifyConnectionService::class.java))
-                EconomyWorker.schedule(this)
-                Prefs.setRunning(this, true)
-            } else {
-                EconomyWorker.cancel(this)
-                ContextCompat.startForegroundService(this, Intent(this, NotifyConnectionService::class.java))
-            }
-            // start/stop são assíncronos: mostra o estado pedido em vez de consultar o serviço agora.
-            showStatus(running = true)
-        }
-
-        findViewById<Button>(R.id.buttonStop).setOnClickListener {
-            EconomyWorker.cancel(this)
-            stopService(Intent(this, NotifyConnectionService::class.java))
-            Prefs.setRunning(this, false)
-            showStatus(running = false)
-        }
-
-        buttonBattery.setOnClickListener { requestIgnoreBatteryOptimizations() }
-
-        findViewById<Button>(R.id.buttonNotifications).setOnClickListener {
-            if (!Prefs.isConfigured(this)) {
-                Toast.makeText(this, R.string.toast_save_first, Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            startActivity(Intent(this, NotificationsActivity::class.java))
-        }
-    }
-
-    private fun selectedMode() =
-        if (radioMode.checkedRadioButtonId == R.id.radioEconomy) Prefs.MODE_ECONOMY else Prefs.MODE_REALTIME
-
-    private fun saveForm() {
-        Prefs.save(this, editServerUrl.text.toString(), editDeviceId.text.toString(), editApiKey.text.toString())
-        Prefs.setMode(this, selectedMode())
-        Prefs.setLastError(this, null)
-    }
-
-    private fun refreshStatus() {
-        refreshExtras()
-        if (!Prefs.isConfigured(this)) {
-            textStatus.setText(R.string.status_not_configured)
-            return
-        }
-        val lastError = Prefs.getLastError(this)
-        if (!NotifyConnectionService.isAlive && lastError != null) {
-            textStatus.text = getString(R.string.status_stopped_reason, lastError)
-            return
-        }
-        showStatus(NotifyConnectionService.isAlive || (Prefs.getMode(this) == Prefs.MODE_ECONOMY && Prefs.isRunning(this)))
-    }
-
-    private fun showStatus(running: Boolean) {
-        textStatus.setText(
-            when {
-                !running -> R.string.status_stopped
-                Prefs.getMode(this) == Prefs.MODE_ECONOMY -> R.string.status_economy
-                else -> R.string.status_running
-            }
-        )
-    }
-
-    // Botão de bateria e dica da notificação fixa só fazem sentido no tempo real.
-    private fun refreshExtras() {
-        val realtime = selectedMode() == Prefs.MODE_REALTIME
-        textHint.visibility = if (realtime) View.VISIBLE else View.GONE
-        buttonBattery.visibility = if (realtime && !isIgnoringBatteryOptimizations()) View.VISIBLE else View.GONE
-    }
-
-    private fun isIgnoringBatteryOptimizations(): Boolean =
-        getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)
-
-    // Sem isso fabricantes como a Samsung colocam o app para "dormir" e a conexão cai.
-    // Não gasta bateria por si só: só impede o sistema de matar o serviço.
-    @SuppressLint("BatteryLife")
-    private fun requestIgnoreBatteryOptimizations() {
-        try {
-            startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")))
-        } catch (e: Exception) {
-            startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
-        }
-    }
-
-    private fun requestNotificationPermissionIfNeeded() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-                != PackageManager.PERMISSION_GRANTED
-            ) {
-                ActivityCompat.requestPermissions(
-                    this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 100
-                )
-            }
-        }
     }
 
     override fun onResume() {
         super.onResume()
         Prefs.registerListener(this, prefsListener)
         refreshStatus()
+        load()
     }
 
     override fun onPause() {
         Prefs.unregisterListener(this, prefsListener)
         super.onPause()
+    }
+
+    // ---------- Cartão de status ----------
+
+    private fun onToggle() {
+        when {
+            !Prefs.isConfigured(this) -> openSettings()
+            Connection.isActive(this) -> { Connection.stop(this); refreshStatus() }
+            else -> { Connection.start(this); showStatus(active = true) }
+        }
+    }
+
+    private fun refreshStatus() = showStatus(Connection.isActive(this))
+
+    private fun showStatus(active: Boolean) {
+        val economy = Prefs.getMode(this) == Prefs.MODE_ECONOMY
+        val error = Prefs.getLastError(this)
+        val ok = MaterialColors.getColor(statusDot, androidx.appcompat.R.attr.colorPrimary)
+        val bad = MaterialColors.getColor(statusDot, androidx.appcompat.R.attr.colorError)
+        val off = ContextCompat.getColor(this, R.color.status_off)
+
+        when {
+            !Prefs.isConfigured(this) -> render(R.drawable.ic_settings, R.string.card_setup_title,
+                getString(R.string.card_setup_subtitle), R.string.button_configure, R.drawable.ic_settings,
+                R.string.header_setup, off, filled = true)
+            active && economy -> render(R.drawable.ic_battery, R.string.card_economy_title,
+                getString(R.string.card_economy_subtitle), R.string.button_stop, R.drawable.ic_stop,
+                R.string.header_economy, ok, filled = false)
+            active -> render(R.drawable.ic_bolt, R.string.card_realtime_title,
+                getString(R.string.card_realtime_subtitle), R.string.button_stop, R.drawable.ic_stop,
+                R.string.header_realtime, ok, filled = false)
+            error != null -> render(R.drawable.ic_power_off, R.string.card_error_title,
+                error, R.string.button_start, R.drawable.ic_play, R.string.header_error, bad, filled = true)
+            else -> render(R.drawable.ic_power_off, R.string.card_stopped_title,
+                getString(R.string.card_stopped_subtitle), R.string.button_start, R.drawable.ic_play,
+                R.string.header_stopped, off, filled = true)
+        }
+    }
+
+    private fun render(
+        icon: Int, title: Int, subtitle: String, button: Int, buttonIcon: Int,
+        header: Int, dotColor: Int, filled: Boolean
+    ) {
+        imageStatus.setImageResource(icon)
+        textStatusTitle.setText(title)
+        textStatusSubtitle.text = subtitle
+        buttonToggle.setText(button)
+        buttonToggle.setIconResource(buttonIcon)
+        textHeaderStatus.setText(header)
+        statusDot.backgroundTintList = ColorStateList.valueOf(dotColor)
+        // Iniciar/Configurar em destaque; Parar mais discreto.
+        val primary = MaterialColors.getColor(buttonToggle, androidx.appcompat.R.attr.colorPrimary)
+        val onPrimary = MaterialColors.getColor(buttonToggle, com.google.android.material.R.attr.colorOnPrimary)
+        val surface = MaterialColors.getColor(buttonToggle, com.google.android.material.R.attr.colorSurface)
+        buttonToggle.backgroundTintList = ColorStateList.valueOf(if (filled) primary else surface)
+        val fg = if (filled) onPrimary else primary
+        buttonToggle.setTextColor(fg)
+        buttonToggle.iconTint = ColorStateList.valueOf(fg)
+    }
+
+    // ---------- Lista ----------
+
+    private fun load() = fetchPage(reset = true)
+
+    // offset = itens já exibidos: os que mudam de status saem da lista local e do filtro no servidor juntos.
+    private fun fetchPage(reset: Boolean) {
+        if (!Prefs.isConfigured(this)) {
+            swipeRefresh.isRefreshing = false
+            adapter.submitList(emptyList())
+            updateEmpty()
+            return
+        }
+        if (loading && !reset) return
+        loading = true
+        val status = currentStatus
+        val offset = if (reset) 0 else adapter.itemCount
+        swipeRefresh.isRefreshing = true
+        ApiClient.listNotifications(this, status, offset) { response, error ->
+            if (isDestroyed || status != currentStatus) return@listNotifications
+            loading = false
+            swipeRefresh.isRefreshing = false
+            if (error != null || response == null) {
+                Snackbar.make(recycler, error ?: getString(R.string.error_network), Snackbar.LENGTH_LONG).show()
+                updateEmpty()
+                return@listNotifications
+            }
+            val array: JSONArray = response.optJSONArray("notifications") ?: JSONArray()
+            val list = (0 until array.length()).map { NotificationItem.fromJson(array.getJSONObject(it)) }
+            hasMore = list.size == ApiClient.PAGE_SIZE
+            if (reset) adapter.submitList(list) else adapter.appendList(list)
+            updateEmpty()
+        }
+    }
+
+    private fun updateEmpty() {
+        val empty = adapter.itemCount == 0
+        emptyState.visibility = if (empty) View.VISIBLE else View.GONE
+        if (!empty) return
+        textEmptyTitle.setText(
+            when (currentStatus) {
+                "done" -> R.string.empty_done_title
+                "archived" -> R.string.empty_archived_title
+                else -> R.string.empty_pending_title
+            }
+        )
+        textEmptySubtitle.setText(
+            when {
+                !Prefs.isConfigured(this) -> R.string.empty_setup_subtitle
+                currentStatus == "pending" -> R.string.empty_pending_subtitle
+                else -> R.string.empty_other_subtitle
+            }
+        )
+    }
+
+    private fun changeStatus(item: NotificationItem, target: String) {
+        ApiClient.move(this, item.id, target) { response, error ->
+            if (isDestroyed) return@move
+            if (error == null && response?.optBoolean("ok") == true) {
+                adapter.removeItem(item.id)
+                if (target != "pending") NotificationHelper.cancel(this, item.id)
+                updateEmpty()
+            } else {
+                Snackbar.make(recycler, error ?: getString(R.string.error_action), Snackbar.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun swipeArchive(pos: Int) {
+        val item = adapter.itemAt(pos)
+        adapter.removeItem(item.id)
+        updateEmpty()
+        ApiClient.move(this, item.id, "archived") { _, error ->
+            if (isDestroyed) return@move
+            if (error != null) {
+                adapter.insertItem(pos, item); updateEmpty()
+                Snackbar.make(recycler, error, Snackbar.LENGTH_LONG).show()
+                return@move
+            }
+            NotificationHelper.cancel(this, item.id)
+            Snackbar.make(recycler, R.string.snack_archived, Snackbar.LENGTH_LONG)
+                .setAction(R.string.snack_undo) {
+                    ApiClient.move(this, item.id, item.status) { _, _ -> if (!isDestroyed) load() }
+                }.show()
+        }
+    }
+
+    // Só apaga no servidor quando o aviso some sem "Desfazer": um toque errado não perde nada.
+    private fun swipeDelete(pos: Int) {
+        val item = adapter.itemAt(pos)
+        adapter.removeItem(item.id)
+        updateEmpty()
+        Snackbar.make(recycler, R.string.snack_deleted, Snackbar.LENGTH_LONG)
+            .setAction(R.string.snack_undo) { adapter.insertItem(pos, item); updateEmpty() }
+            .addCallback(object : Snackbar.Callback() {
+                override fun onDismissed(bar: Snackbar?, event: Int) {
+                    if (event == DISMISS_EVENT_ACTION) return
+                    NotificationHelper.cancel(applicationContext, item.id)
+                    ApiClient.delete(applicationContext, item.id) { _, _ -> }
+                }
+            }).show()
+    }
+
+    private fun openLink(link: String) {
+        if (!isWebLink(link)) {
+            Toast.makeText(this, R.string.error_invalid_link, Toast.LENGTH_SHORT).show()
+            return
+        }
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link)))
+        } catch (e: Exception) {
+            Toast.makeText(this, R.string.error_invalid_link, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun openSettings() = startActivity(Intent(this, SettingsActivity::class.java))
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 100)
+        }
     }
 }

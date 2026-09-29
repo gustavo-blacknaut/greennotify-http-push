@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Paleta Material 3 (tema escuro) -->
+    <color name="m3_primary">#FF8FD88A</color>
+    <color name="m3_on_primary">#FF00390F</color>
+    <color name="m3_primary_container">#FF00531A</color>
+    <color name="m3_on_primary_container">#FFAAF5A3</color>
+    <color name="m3_secondary">#FFB9CCB4</color>
+    <color name="m3_on_secondary">#FF253423</color>
+    <color name="m3_secondary_container">#FF3B4B38</color>
+    <color name="m3_on_secondary_container">#FFD5E8CF</color>
+    <color name="m3_error">#FFFFB4AB</color>
+    <color name="m3_surface">#FF10140F</color>
+    <color name="m3_on_surface">#FFE0E4DB</color>
+    <color name="m3_surface_variant">#FF424940</color>
+    <color name="m3_on_surface_variant">#FFC2C9BD</color>
+    <color name="m3_outline">#FF8C9388</color>
+    <color name="m3_outline_variant">#FF424940</color>
+    <color name="m3_surface_container_lowest">#FF0B0F0A</color>
+    <color name="m3_surface_container_low">#FF181D17</color>
+    <color name="m3_surface_container">#FF1C211B</color>
+    <color name="m3_surface_container_high">#FF272B25</color>
+    <color name="m3_surface_container_highest">#FF313630</color>
+</resources>

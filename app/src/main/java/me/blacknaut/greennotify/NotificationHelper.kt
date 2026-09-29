@@ -74,7 +74,7 @@ object NotificationHelper {
         // Sem app que abra o link, o toque cai no histórico em vez de não fazer nada.
         val linkIntent = if (isWebLink(link)) Intent(Intent.ACTION_VIEW, Uri.parse(link)) else null
         val targetIntent = linkIntent?.takeIf { it.resolveActivity(ctx.packageManager) != null }
-            ?: Intent(ctx, NotificationsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            ?: Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val pendingIntent = PendingIntent.getActivity(
             ctx, id.hashCode(), targetIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -133,7 +133,7 @@ object NotificationHelper {
         }
         val openHistory = PendingIntent.getActivity(
             ctx, (SUMMARY_PREFIX + subject).hashCode(),
-            Intent(ctx, NotificationsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val count = children.size

@@ -1,11 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Cores tiradas da logo GreenCodes -->
-    <color name="green_dark">#FF007934</color>
+    <!-- Cores tiradas da logo GreenCodes (fixas, usadas em notificações) -->
     <color name="green">#FF0F8D34</color>
     <color name="green_leaf">#FF56BA24</color>
-    <color name="green_light">#FF80D523</color>
-    <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="ic_launcher_background">#FFFFFFFF</color>
+
+    <!-- Paleta Material 3 (tema claro) gerada a partir do verde da marca -->
+    <color name="m3_primary">#FF1B7F32</color>
+    <color name="m3_on_primary">#FFFFFFFF</color>
+    <color name="m3_primary_container">#FFB6F2AA</color>
+    <color name="m3_on_primary_container">#FF002107</color>
+    <color name="m3_secondary">#FF52634F</color>
+    <color name="m3_on_secondary">#FFFFFFFF</color>
+    <color name="m3_secondary_container">#FFD5E8CF</color>
+    <color name="m3_on_secondary_container">#FF101F10</color>
+    <color name="m3_error">#FFBA1A1A</color>
+    <color name="m3_surface">#FFF7FBF2</color>
+    <color name="m3_on_surface">#FF181D17</color>
+    <color name="m3_surface_variant">#FFDEE5D8</color>
+    <color name="m3_on_surface_variant">#FF424940</color>
+    <color name="m3_outline">#FF72796F</color>
+    <color name="m3_outline_variant">#FFC2C9BD</color>
+    <color name="m3_surface_container_lowest">#FFFFFFFF</color>
+    <color name="m3_surface_container_low">#FFF1F5EC</color>
+    <color name="m3_surface_container">#FFEBEFE6</color>
+    <color name="m3_surface_container_high">#FFE6E9E0</color>
+    <color name="m3_surface_container_highest">#FFE0E4DB</color>
+
+    <!-- Avatares das notificações (cor escolhida pelo assunto) -->
+    <color name="avatar_1">#FF1B7F32</color>
+    <color name="avatar_2">#FF00796B</color>
+    <color name="avatar_3">#FF1565C0</color>
+    <color name="avatar_4">#FF6A1B9A</color>
+    <color name="avatar_5">#FFD84315</color>
+    <color name="avatar_6">#FF5D4037</color>
+    <color name="status_off">#FF9E9E9E</color>
 </resources>

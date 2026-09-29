@@ -1,70 +1,91 @@
 package me.blacknaut.greennotify
 
+import android.content.res.ColorStateList
+import android.text.format.DateUtils
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.TextView
+import androidx.appcompat.widget.TooltipCompat
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
-import java.text.SimpleDateFormat
-import java.util.*
+import com.google.android.material.button.MaterialButton
+import kotlin.math.abs
 
 class NotificationAdapter(
     private val items: MutableList<NotificationItem>,
     private val onOpenLink: (String) -> Unit,
-    private val onComplete: (NotificationItem) -> Unit,
-    private val onArchive: (NotificationItem) -> Unit
+    /** Concluir (ou reabrir, se já concluída). */
+    private val onPrimary: (NotificationItem) -> Unit,
+    /** Arquivar (ou restaurar, se já arquivada). */
+    private val onSecondary: (NotificationItem) -> Unit
 ) : RecyclerView.Adapter<NotificationAdapter.ViewHolder>() {
 
-    private val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.forLanguageTag("pt-BR"))
-
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val avatar: TextView = view.findViewById(R.id.textAvatar)
         val title: TextView = view.findViewById(R.id.textTitle)
-        val appDate: TextView = view.findViewById(R.id.textAppDate)
+        val time: TextView = view.findViewById(R.id.textTime)
+        val meta: TextView = view.findViewById(R.id.textMeta)
         val message: TextView = view.findViewById(R.id.textMessage)
         val reason: TextView = view.findViewById(R.id.textReason)
-        val link: TextView = view.findViewById(R.id.textLink)
-        val buttonComplete: Button = view.findViewById(R.id.buttonComplete)
-        val buttonArchive: Button = view.findViewById(R.id.buttonArchive)
+        val link: MaterialButton = view.findViewById(R.id.buttonLink)
+        val primary: MaterialButton = view.findViewById(R.id.buttonComplete)
+        val secondary: MaterialButton = view.findViewById(R.id.buttonArchive)
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_notification, parent, false)
-        return ViewHolder(view)
-    }
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder =
+        ViewHolder(LayoutInflater.from(parent.context).inflate(R.layout.item_notification, parent, false))
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = items[position]
         val ctx = holder.itemView.context
-        holder.title.text = item.title
-        val date = if (item.createdAt > 0) dateFormat.format(Date(item.createdAt)) else ""
-        holder.appDate.text = listOf(item.topic, item.app, date).distinct().filter { it.isNotBlank() }.joinToString(" • ")
-        holder.message.visibility = if (item.message.isBlank()) View.GONE else View.VISIBLE
+        val subject = item.topic.ifBlank { item.app }.ifBlank { item.title }
+
+        holder.avatar.text = subject.firstOrNull { it.isLetterOrDigit() }?.uppercase() ?: "G"
+        holder.avatar.backgroundTintList =
+            ColorStateList.valueOf(ContextCompat.getColor(ctx, AVATAR_COLORS[abs(subject.hashCode()) % AVATAR_COLORS.size]))
+
+        holder.title.text = item.title.ifBlank { ctx.getString(R.string.default_notification_title) }
+        holder.time.text = if (item.createdAt > 0) DateUtils.getRelativeTimeSpanString(
+            item.createdAt, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_ABBREV_RELATIVE
+        ) else ""
+
+        val meta = listOf(item.topic, item.app).filter { it.isNotBlank() }.distinct().joinToString(" · ")
+        holder.meta.text = meta
+        holder.meta.visibility = if (meta.isBlank()) View.GONE else View.VISIBLE
+
         holder.message.text = item.message
-        holder.reason.visibility = if (item.reason.isBlank()) View.GONE else View.VISIBLE
+        holder.message.visibility = if (item.message.isBlank()) View.GONE else View.VISIBLE
         holder.reason.text = ctx.getString(R.string.reason_format, item.reason)
+        holder.reason.visibility = if (item.reason.isBlank()) View.GONE else View.VISIBLE
 
         if (isWebLink(item.link)) {
             holder.link.visibility = View.VISIBLE
-            holder.link.text = item.link
             holder.link.setOnClickListener { onOpenLink(item.link) }
         } else {
             holder.link.visibility = View.GONE
         }
 
         val done = item.status == "done"
-        holder.buttonComplete.isEnabled = !done
-        holder.buttonComplete.setText(if (done) R.string.button_completed else R.string.button_complete)
-        holder.buttonComplete.setOnClickListener { onComplete(item) }
+        holder.primary.setIconResource(if (done) R.drawable.ic_undo else R.drawable.ic_check)
+        setLabel(holder.primary, ctx.getString(if (done) R.string.action_reopen else R.string.action_complete))
+        holder.primary.setOnClickListener { onPrimary(item) }
 
         val archived = item.status == "archived"
-        holder.buttonArchive.isEnabled = !archived
-        holder.buttonArchive.setText(if (archived) R.string.button_archived else R.string.button_archive)
-        holder.buttonArchive.setOnClickListener { onArchive(item) }
+        holder.secondary.setIconResource(if (archived) R.drawable.ic_unarchive else R.drawable.ic_archive)
+        setLabel(holder.secondary, ctx.getString(if (archived) R.string.action_restore else R.string.action_archive))
+        holder.secondary.setOnClickListener { onSecondary(item) }
+    }
+
+    private fun setLabel(button: MaterialButton, label: String) {
+        button.contentDescription = label
+        TooltipCompat.setTooltipText(button, label)
     }
 
     override fun getItemCount(): Int = items.size
+
+    fun itemAt(position: Int): NotificationItem = items[position]
 
     // Diff síncrono (listas de até algumas centenas de itens): itemCount fica correto logo após a chamada,
     // o que a paginação por offset precisa.
@@ -87,11 +108,25 @@ class NotificationAdapter(
         notifyItemRangeInserted(start, more.size)
     }
 
-    fun removeItem(id: String) {
+    fun removeItem(id: String): Int {
         val idx = items.indexOfFirst { it.id == id }
         if (idx >= 0) {
             items.removeAt(idx)
             notifyItemRemoved(idx)
         }
+        return idx
+    }
+
+    fun insertItem(position: Int, item: NotificationItem) {
+        val pos = position.coerceIn(0, items.size)
+        items.add(pos, item)
+        notifyItemInserted(pos)
+    }
+
+    companion object {
+        private val AVATAR_COLORS = intArrayOf(
+            R.color.avatar_1, R.color.avatar_2, R.color.avatar_3,
+            R.color.avatar_4, R.color.avatar_5, R.color.avatar_6
+        )
     }
 }

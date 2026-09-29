@@ -107,6 +107,17 @@ Projeto Android Studio (Kotlin) já dentro deste repositório. Abra a pasta raiz
 
 O app pede a permissão de notificações (Android 13+) na primeira abertura.
 
+### Tela do app
+
+- A tela inicial já é a lista de notificações, com filtros **Pendentes / Concluídas /
+  Arquivadas**, puxar para atualizar e rolagem infinita.
+- **Arraste para a direita** para arquivar e **para a esquerda** para apagar. Os dois
+  mostram "Desfazer" por alguns segundos, e a exclusão só vai para o servidor depois disso.
+- Cada notificação tem botões para abrir o link, concluir (ou reabrir) e arquivar (ou
+  restaurar).
+- O cartão verde no topo mostra se está conectado e tem o botão Iniciar/Parar. Servidor,
+  chave e modo ficam na engrenagem (Configurações), que também tem "Testar conexão".
+
 ### Modos de recebimento
 
 - **Tempo real** (padrão): conexão aberta com o servidor, a notificação chega na hora.

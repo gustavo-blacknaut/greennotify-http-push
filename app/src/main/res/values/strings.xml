@@ -1,45 +1,72 @@
 <resources>
     <string name="app_name">GreenNotify</string>
     <string name="logo_description">Logo GreenCodes</string>
+    <string name="title_settings">Configurações</string>
+    <string name="back">Voltar</string>
 
-    <!-- Tela principal -->
-    <string name="label_server_url">URL do servidor (ex: http://192.168.0.10:8080)</string>
-    <string name="hint_server_url" translatable="false">http://192.168.0.10:8080</string>
-    <string name="label_device_id">ID deste dispositivo</string>
-    <string name="hint_device_id" translatable="false">meu-celular</string>
-    <string name="label_api_key">Chave de API do dispositivo</string>
-    <string name="hint_api_key">cole aqui a apiKey retornada por /register</string>
-    <string name="button_save">Salvar configuração</string>
-    <string name="button_start">Iniciar conexão</string>
-    <string name="button_stop">Parar conexão</string>
-    <string name="button_notifications">Ver notificações</string>
-    <string name="status_not_configured">Status: não configurado</string>
-    <string name="status_running">Status: serviço em execução</string>
-    <string name="status_stopped">Status: parado</string>
-    <string name="toast_config_saved">Configuração salva</string>
-    <string name="toast_save_first">Salve a configuração primeiro</string>
-    <string name="label_mode">Modo de recebimento</string>
-    <string name="mode_realtime">Tempo real: chega na hora, com baixo consumo de bateria e internet</string>
-    <string name="mode_economy">Economia: verifica a cada ~15 min, consumo mínimo e sem notificação fixa</string>
-    <string name="status_economy">Status: economia, verificando a cada ~15 min</string>
-    <string name="button_battery">Liberar em segundo plano (recomendado)</string>
-    <string name="hint_hide_fixed">Para esconder a notificação fixa do modo tempo real: toque e segure nela e desative \"Conexão em segundo plano\". O app continua recebendo normalmente.</string>
+    <!-- Tela inicial: cabeçalho -->
+    <string name="header_realtime">Conectado · tempo real</string>
+    <string name="header_economy">Modo economia</string>
+    <string name="header_stopped">Desconectado</string>
+    <string name="header_setup">Não configurado</string>
+    <string name="header_error">Precisa de atenção</string>
 
-    <!-- Histórico -->
-    <string name="title_notifications">Notificações</string>
+    <!-- Tela inicial: cartão de status -->
+    <string name="card_setup_title">Configure o servidor</string>
+    <string name="card_setup_subtitle">Informe a URL e a chave de API para começar</string>
+    <string name="card_realtime_title">Tempo real ativo</string>
+    <string name="card_realtime_subtitle">Recebendo notificações na hora</string>
+    <string name="card_economy_title">Modo economia</string>
+    <string name="card_economy_subtitle">Verificando a cada ~15 minutos</string>
+    <string name="card_stopped_title">Parado</string>
+    <string name="card_stopped_subtitle">Toque em Iniciar para receber notificações</string>
+    <string name="card_error_title">Conexão parada</string>
+    <string name="button_start">Iniciar</string>
+    <string name="button_stop">Parar</string>
+    <string name="button_configure">Configurar</string>
+
+    <!-- Tela inicial: lista -->
     <string name="filter_pending">Pendentes</string>
     <string name="filter_done">Concluídas</string>
     <string name="filter_archived">Arquivadas</string>
-    <string name="empty_notifications">Nenhuma notificação por aqui</string>
-    <string name="toast_configure_first">Configure o servidor na tela principal primeiro</string>
-    <string name="button_complete">Concluir</string>
-    <string name="button_completed">Concluída</string>
-    <string name="button_archive">Arquivar</string>
-    <string name="button_archived">Arquivada</string>
-    <string name="error_complete">Não consegui marcar como concluída</string>
-    <string name="error_archive">Não consegui arquivar</string>
+    <string name="empty_pending_title">Tudo em dia</string>
+    <string name="empty_pending_subtitle">Nenhuma notificação pendente. Quando chegar algo, aparece aqui.</string>
+    <string name="empty_done_title">Nada concluído ainda</string>
+    <string name="empty_archived_title">Nada arquivado</string>
+    <string name="empty_other_subtitle">Arraste uma notificação para a direita para arquivar e para a esquerda para apagar.</string>
+    <string name="empty_setup_subtitle">Configure o servidor para ver suas notificações.</string>
+    <string name="button_open_link">Abrir link</string>
+    <string name="action_complete">Concluir</string>
+    <string name="action_reopen">Reabrir</string>
+    <string name="action_archive">Arquivar</string>
+    <string name="action_restore">Restaurar</string>
+    <string name="snack_archived">Notificação arquivada</string>
+    <string name="snack_deleted">Notificação apagada</string>
+    <string name="snack_undo">Desfazer</string>
+    <string name="error_action">Não consegui atualizar a notificação</string>
     <string name="error_invalid_link">Link inválido</string>
-    <string name="error_invalid_response">Resposta inválida do servidor</string>
+
+    <!-- Configurações -->
+    <string name="section_server">SERVIDOR</string>
+    <string name="section_mode">MODO DE RECEBIMENTO</string>
+    <string name="hint_server_url">URL do servidor</string>
+    <string name="helper_server_url">Ex.: http://192.168.0.10:8080</string>
+    <string name="hint_device_id">ID deste dispositivo</string>
+    <string name="hint_api_key">Chave de API</string>
+    <string name="button_test">Testar conexão</string>
+    <string name="test_running">Testando…</string>
+    <string name="test_ok">Conexão OK ✓</string>
+    <string name="test_fill_all">Preencha URL, ID e chave</string>
+    <string name="mode_realtime_title">Tempo real</string>
+    <string name="mode_realtime_desc">Chega na hora, com baixo consumo de bateria e internet.</string>
+    <string name="mode_economy_title">Economia</string>
+    <string name="mode_economy_desc">Verifica a cada ~15 minutos. Consumo mínimo e sem notificação fixa.</string>
+    <string name="battery_title">Liberar em segundo plano</string>
+    <string name="battery_desc">Recomendado em Samsung e Xiaomi: impede que o sistema desligue a conexão. Não aumenta o consumo.</string>
+    <string name="button_allow">Liberar</string>
+    <string name="hint_hide_fixed">No tempo real fica uma notificação discreta de conexão. Para escondê-la, toque e segure nela e desative \"Conexão em segundo plano\" — o app continua recebendo.</string>
+    <string name="button_save">Salvar</string>
+    <string name="toast_saved">Configurações salvas</string>
 
     <!-- Notificações do sistema -->
     <string name="channel_service_name">Conexão em segundo plano</string>
@@ -61,9 +88,8 @@
     <string name="service_connected">Conectado a %1$s</string>
     <string name="service_reconnecting">Reconectando…</string>
     <string name="service_disconnected">Desconectado</string>
-    <string name="service_invalid_key">Chave inválida — confira deviceId e apiKey</string>
+    <string name="service_invalid_key">Chave inválida — confira o ID e a chave</string>
     <string name="service_stopped_title">GreenNotify parado</string>
-    <string name="status_stopped_reason">Status: parado — %1$s</string>
 
     <!-- Erros de rede -->
     <string name="error_server_not_configured">Servidor não configurado</string>
