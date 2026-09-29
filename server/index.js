@@ -28,7 +28,31 @@ if (!ADMIN_KEY || ADMIN_KEY.length < 16) {
 }
 
 const app = express();
-app.use(express.json());
+
+// Tudo é gravado e devolvido em UTF-8. Mas nem todo cliente manda UTF-8: o PowerShell 5 e o curl
+// no Windows costumam mandar Windows-1252, e "Notificação" viraria "Notifica��o". Se o corpo não
+// for UTF-8 válido, decodifica como Windows-1252 antes de ler o JSON.
+const utf8 = new TextDecoder('utf-8', { fatal: true });
+const win1252 = new TextDecoder('windows-1252');
+app.use(express.raw({ type: '*/*', limit: '100kb' }));
+app.use((req, res, next) => {
+  if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+    req.body = {};
+    return next();
+  }
+  let text;
+  try {
+    text = utf8.decode(req.body);
+  } catch (_) {
+    text = win1252.decode(req.body);
+  }
+  try {
+    req.body = JSON.parse(text.replace(/^﻿/, ''));
+  } catch (_) {
+    return res.status(400).json({ error: 'JSON inválido' });
+  }
+  next();
+});
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
 
@@ -61,8 +85,10 @@ wss.on('connection', (ws, req) => {
     return;
   }
 
-  ws.isAlive = true;
-  ws.on('pong', () => { ws.isAlive = true; });
+  ws.lastSeen = Date.now();
+  const seen = () => { ws.lastSeen = Date.now(); };
+  ws.on('pong', seen);
+  ws.on('ping', seen);
 
   if (!connections.has(deviceId)) connections.set(deviceId, new Set());
   connections.get(deviceId).add(ws);
@@ -73,6 +99,7 @@ wss.on('connection', (ws, req) => {
   }
 
   ws.on('message', (raw) => {
+    seen();
     try {
       const msg = JSON.parse(raw.toString());
       if (msg.type === 'ack' && msg.id) {
@@ -88,25 +115,25 @@ wss.on('connection', (ws, req) => {
 });
 
 // Celular que some sem fechar o TCP (troca de rede, bateria, reboot) deixa a conexão meio aberta:
-// o servidor acharia que ainda entrega. Quem não responder ao ping anterior é derrubado.
-const HEARTBEAT_MS = Number(process.env.HEARTBEAT_MS) || 30000;
+// o servidor acharia que ainda entrega. Qualquer sinal do celular (o app pinga a cada 3 min) conta
+// como vivo; o servidor só pinga quem ficou calado por HEARTBEAT_MS e derruba quem passou do dobro.
+// Pingar todo mundo com frequência acordaria o rádio do celular à toa e gastaria bateria.
+const HEARTBEAT_MS = Number(process.env.HEARTBEAT_MS) || 5 * 60 * 1000;
 const heartbeat = setInterval(() => {
+  const now = Date.now();
   for (const ws of wss.clients) {
-    if (!ws.isAlive) {
-      ws.terminate();
-      continue;
-    }
-    ws.isAlive = false;
-    ws.ping();
+    const idle = now - (ws.lastSeen || 0);
+    if (idle > 2 * HEARTBEAT_MS) ws.terminate();
+    else if (idle >= HEARTBEAT_MS) ws.ping();
   }
-}, HEARTBEAT_MS);
+}, Math.min(60 * 1000, HEARTBEAT_MS / 2));
 
 // ---------- HTTP: tudo via POST (corpo em JSON) ----------
 
 app.get('/health', (req, res) => res.json({ ok: true }));
 
 const STATUSES = ['pending', 'done', 'archived'];
-const MAX_LENGTHS = { title: 200, message: 4000, reason: 1000, app: 100, link: 2000, name: 100 };
+const MAX_LENGTHS = { title: 200, message: 4000, reason: 1000, app: 100, link: 2000, name: 100, topic: 100 };
 
 function validateFields(body) {
   for (const [field, max] of Object.entries(MAX_LENGTHS)) {
@@ -172,12 +199,12 @@ app.post('/register', registerLimiter, (req, res) => {
 app.use(['/notify', '/list', '/complete', '/move', '/delete', '/ack'], failedAuthLimiter);
 
 // Enviar notificação (usado pelas suas outras aplicações).
-// POST /notify { key, deviceId, title, message, reason, app, link }
+// POST /notify { key, deviceId, title, message, reason, app, link, topic }
 app.post('/notify', (req, res) => {
   const deviceId = auth(req, res);
   if (!deviceId) return;
-  const { title, message, reason, app: appName, link } = req.body;
-  const notif = store.addNotification(deviceId, { title, message, reason, app: appName, link });
+  const { title, message, reason, app: appName, link, topic } = req.body;
+  const notif = store.addNotification(deviceId, { title, message, reason, app: appName, link, topic });
   const delivered = sendToDevice(deviceId, { type: 'notification', ...notif });
   res.json({ ok: true, delivered, notification: notif });
 });

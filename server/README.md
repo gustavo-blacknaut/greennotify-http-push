@@ -164,6 +164,7 @@ Os campos que dá pra mandar são esses:
 | `reason`   | não         | o motivo, aparece destacado ("Motivo: ...")                  |
 | `app`      | não         | nome de quem tá mandando, aparece como "Origem"               |
 | `link`     | não         | um link (ticket, canal do Discord, pedido, etc) clicável no app |
+| `topic`    | não         | o assunto: notificações com o mesmo `topic` ficam empilhadas juntas no celular (ex: `"Ticket #123"`). Sem ele, agrupa pelo `app` |
 
 Se o celular estiver com o app aberto/serviço rodando, a notificação chega na
 hora. Se não estiver, fica guardada no servidor e é entregue assim que ele
@@ -212,8 +213,12 @@ curl -X POST "http://SEU_SERVIDOR:PORTA/delete" \
 
 Celular que troca de Wi‑Fi pra 4G, fica sem bateria ou reinicia costuma sumir sem
 fechar a conexão direito. Pra não ficar achando que está entregando pra ninguém, o
-servidor manda um ping pra cada celular a cada 30 segundos e derruba quem não
-respondeu o anterior — então em até ~1 minuto a conexão morta some.
+servidor acompanha o último sinal de cada celular (o app manda um ping a cada 3
+minutos). Quem fica 5 minutos calado leva um ping do servidor, e quem passa de 10
+minutos sem sinal é desconectado. Os intervalos são longos de propósito: cada ping
+acorda o rádio do celular, e pingar a cada poucos segundos gastaria bateria e
+internet à toa. Dá pra mudar com a variável `HEARTBEAT_MS` (em milissegundos, padrão
+300000).
 
 Nada se perde nesse meio tempo: notificação só conta como entregue quando o app
 confirma o recebimento. O que não foi confirmado é reenviado automaticamente quando o

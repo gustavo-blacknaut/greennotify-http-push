@@ -22,6 +22,7 @@ db.exec(`
     reason TEXT,
     app TEXT,
     link TEXT,
+    topic TEXT,
     status TEXT NOT NULL DEFAULT 'pending',
     delivered INTEGER NOT NULL DEFAULT 0,
     createdAt INTEGER NOT NULL
@@ -31,6 +32,9 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_notifications_device_status_created
     ON notifications(deviceId, status, createdAt);
 `);
+
+const columns = db.prepare('PRAGMA table_info(notifications)').all().map(c => c.name);
+if (!columns.includes('topic')) db.exec("ALTER TABLE notifications ADD COLUMN topic TEXT DEFAULT ''");
 
 function migrateLegacyJson() {
   const legacyFile = path.join(__dirname, 'data.json');
@@ -108,7 +112,7 @@ function rowToNotification(row) {
   return { ...row, delivered: !!row.delivered };
 }
 
-function addNotification(deviceId, { title, message, reason, app, link }) {
+function addNotification(deviceId, { title, message, reason, app, link, topic }) {
   const notif = {
     id: genId(),
     deviceId,
@@ -117,13 +121,14 @@ function addNotification(deviceId, { title, message, reason, app, link }) {
     reason: reason || '',
     app: app || 'desconhecido',
     link: link || '',
+    topic: topic || '',
     status: 'pending',
     delivered: 0,
     createdAt: Date.now()
   };
   db.prepare(`
-    INSERT INTO notifications (id, deviceId, title, message, reason, app, link, status, delivered, createdAt)
-    VALUES (@id, @deviceId, @title, @message, @reason, @app, @link, @status, @delivered, @createdAt)
+    INSERT INTO notifications (id, deviceId, title, message, reason, app, link, topic, status, delivered, createdAt)
+    VALUES (@id, @deviceId, @title, @message, @reason, @app, @link, @topic, @status, @delivered, @createdAt)
   `).run(notif);
   return rowToNotification(notif);
 }
