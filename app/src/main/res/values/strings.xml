@@ -17,7 +17,7 @@
     <string name="card_realtime_title">Tempo real ativo</string>
     <string name="card_realtime_subtitle">Recebendo notificações na hora</string>
     <string name="card_economy_title">Modo economia</string>
-    <string name="card_economy_subtitle">Verificando a cada ~10 minutos</string>
+    <string name="card_economy_subtitle">Verificando no intervalo escolhido</string>
     <string name="card_stopped_title">Parado</string>
     <string name="card_stopped_subtitle">Toque em Iniciar para receber notificações</string>
     <string name="card_error_title">Conexão parada</string>
@@ -58,9 +58,14 @@
     <string name="test_ok">Conexão OK ✓</string>
     <string name="test_fill_all">Preencha URL, ID e chave</string>
     <string name="mode_realtime_title">Tempo real</string>
-    <string name="mode_realtime_desc">Chega na hora, com baixo consumo de bateria e internet.</string>
+    <string name="mode_realtime_desc">Chega na hora. Medido: acorda o rádio 1 vez a cada 5 min no Wi‑Fi (288 por dia) e a cada 3 min nos dados (480 por dia), ~2 MB por mês.</string>
     <string name="mode_economy_title">Economia</string>
-    <string name="mode_economy_desc">Verifica a cada ~10 minutos. Consumo mínimo.</string>
+    <string name="mode_economy_desc">Verifica de tempos em tempos (escolha abaixo o intervalo no Wi‑Fi e nos dados). Sem conexão aberta.</string>
+    <string name="hint_interval_wifi">Verificar no Wi‑Fi a cada</string>
+    <string name="hint_interval_mobile">Verificar nos dados móveis a cada</string>
+    <string name="interval_option">%1$d minutos</string>
+    <string name="interval_cost">≈ %1$d acordadas do rádio por dia · ≈ %2$s MB por mês</string>
+    <string name="interval_warn_realtime">Nesse ritmo o Tempo real gasta menos bateria e chega na hora.</string>
     <string name="battery_title">Liberar em segundo plano</string>
     <string name="battery_desc">Recomendado em Samsung e Xiaomi: impede que o sistema desligue a conexão. Não aumenta o consumo.</string>
     <string name="button_allow">Liberar</string>

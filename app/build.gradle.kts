@@ -12,8 +12,8 @@ android {
         applicationId = "me.blacknaut.greennotify"
         minSdk = 24
         targetSdk = 37
-        versionCode = 7
-        versionName = "1.0.6"
+        versionCode = 8
+        versionName = "1.0.7"
     }
 
     // Assinatura só via variáveis de ambiente: a keystore e a senha nunca entram no repositório.

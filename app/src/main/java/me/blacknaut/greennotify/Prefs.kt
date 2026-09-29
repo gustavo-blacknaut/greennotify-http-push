@@ -22,6 +22,19 @@ object Prefs {
         prefs(ctx).edit().putString(KEY_MODE, mode).apply()
     }
 
+    // Intervalo das checagens do modo economia, separado por tipo de rede (minutos).
+    val INTERVAL_OPTIONS = intArrayOf(2, 5, 10, 15, 30, 60)
+    fun getWifiMinutes(ctx: Context): Int = prefs(ctx).getInt("wifi_minutes", 10)
+    fun getMobileMinutes(ctx: Context): Int = prefs(ctx).getInt("mobile_minutes", 15)
+    fun setIntervals(ctx: Context, wifi: Int, mobile: Int) {
+        prefs(ctx).edit().putInt("wifi_minutes", wifi).putInt("mobile_minutes", mobile).apply()
+    }
+
+    fun getLastReminderAt(ctx: Context): Long = prefs(ctx).getLong("last_reminder", 0)
+    fun setLastReminderAt(ctx: Context, at: Long) {
+        prefs(ctx).edit().putLong("last_reminder", at).apply()
+    }
+
     /** Lembrete a cada 10 min enquanto houver pendentes (padrão: ligado). */
     fun isRemindEnabled(ctx: Context): Boolean = prefs(ctx).getBoolean("remind", true)
 

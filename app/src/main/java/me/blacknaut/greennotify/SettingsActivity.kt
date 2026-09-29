@@ -24,6 +24,34 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var cardBattery: View
     private lateinit var textHint: View
     private lateinit var textTestResult: TextView
+    private var wifiMinutes = 10
+    private var mobileMinutes = 15
+
+    private fun setupInterval(id: Int, current: Int, onPick: (Int) -> Unit) {
+        val view = findViewById<com.google.android.material.textfield.MaterialAutoCompleteTextView>(id)
+        val labels = Prefs.INTERVAL_OPTIONS.map { getString(R.string.interval_option, it) }.toTypedArray()
+        view.setSimpleItems(labels)
+        view.setText(getString(R.string.interval_option, current), false)
+        showCost(id, current)
+        view.setOnItemClickListener { _, _, pos, _ ->
+            onPick(Prefs.INTERVAL_OPTIONS[pos]); showCost(id, Prefs.INTERVAL_OPTIONS[pos])
+        }
+    }
+
+    // Custo medido: cada checagem do modo economia acorda o rádio 1 vez e troca ~1,2 KB
+    // (634 B de dados do app medidos + cabeçalhos TCP/IP de uma conexão nova).
+    private fun showCost(dropdownId: Int, minutes: Int) {
+        val layout = findViewById<com.google.android.material.textfield.TextInputLayout>(
+            if (dropdownId == R.id.dropdownWifi) R.id.layoutWifi else R.id.layoutMobile
+        )
+        val wakes = 1440 / minutes
+        val mbMonth = wakes * 1.15 * 30 / 1024
+        var text = getString(R.string.interval_cost, wakes, String.format(java.util.Locale.forLanguageTag("pt-BR"), "%.1f", mbMonth))
+        if (dropdownId == R.id.dropdownMobile && minutes < 5 || dropdownId == R.id.dropdownWifi && minutes < 5) {
+            text += " " + getString(R.string.interval_warn_realtime)
+        }
+        layout.helperText = text
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,6 +74,10 @@ class SettingsActivity : AppCompatActivity() {
         val switchRemind = findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.switchRemind)
         switchRemind.isChecked = Prefs.isRemindEnabled(this)
         switchRemind.setOnCheckedChangeListener { _, on -> Prefs.setRemindEnabled(this, on) }
+        setupInterval(R.id.dropdownWifi, Prefs.getWifiMinutes(this)) { wifiMinutes = it }
+        setupInterval(R.id.dropdownMobile, Prefs.getMobileMinutes(this)) { mobileMinutes = it }
+        wifiMinutes = Prefs.getWifiMinutes(this); mobileMinutes = Prefs.getMobileMinutes(this)
+        selectMode(Prefs.getMode(this))
 
         cardRealtime.setOnClickListener { selectMode(Prefs.MODE_REALTIME) }
         cardEconomy.setOnClickListener { selectMode(Prefs.MODE_ECONOMY) }
@@ -73,6 +105,7 @@ class SettingsActivity : AppCompatActivity() {
             card.strokeWidth = ((if (card.isChecked) 2 else 1) * width).toInt()
         }
         textHint.visibility = if (mode == Prefs.MODE_REALTIME) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.groupIntervals).visibility = if (mode == Prefs.MODE_ECONOMY) View.VISIBLE else View.GONE
         refreshBatteryCard()
     }
 
@@ -85,6 +118,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun saveForm() {
         Prefs.save(this, editServerUrl.text.toString(), editDeviceId.text.toString(), editApiKey.text.toString())
         Prefs.setMode(this, selectedMode())
+        Prefs.setIntervals(this, wifiMinutes, mobileMinutes)
         Prefs.setLastError(this, null)
     }
 

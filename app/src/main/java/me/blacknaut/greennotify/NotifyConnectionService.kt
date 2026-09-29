@@ -32,8 +32,6 @@ class NotifyConnectionService : Service() {
         NotificationHelper.createChannels(this)
         client = OkHttpClient.Builder()
             .readTimeout(0, TimeUnit.MILLISECONDS)
-            // Cada ping acorda o rádio: 3 min mantém a conexão viva no Wi‑Fi/4G sem gastar bateria à toa.
-            .pingInterval(3, TimeUnit.MINUTES)
             .build()
     }
 
@@ -114,7 +112,11 @@ class NotifyConnectionService : Service() {
         val request = Request.Builder().url(wsUrl).build()
 
         connectedConfig = currentConfig()
-        webSocket = client.newWebSocket(request, object : WebSocketListener() {
+        // Cada ping acorda o rádio. Nos dados móveis as operadoras derrubam conexões paradas mais cedo
+        // (3 min é seguro); no Wi‑Fi o roteador aguenta mais (5 min). Trocar de rede reconecta e reavalia.
+        val ping = if (NetworkInfo.isWifi(this)) WIFI_PING_MINUTES else MOBILE_PING_MINUTES
+        val wsClient = client.newBuilder().pingInterval(ping, TimeUnit.MINUTES).build()
+        webSocket = wsClient.newWebSocket(request, object : WebSocketListener() {
             // Callbacks de uma conexão já substituída ou derrubada são ignorados.
             private fun onMain(ws: WebSocket, block: () -> Unit) {
                 handler.post { if (webSocket === ws) block() }
@@ -162,7 +164,9 @@ class NotifyConnectionService : Service() {
             when (json.optString("type")) {
                 "notification" -> {
                     NotificationHelper.showIncoming(this, json)
-                    PinnedSummary.refreshAsync(this)
+                    // Conta localmente (sem ir ao servidor); a contagem é conferida a cada reconexão.
+                    Prefs.setPending(this, Prefs.getPendingCount(this) + 1, json.optString("title"))
+                    PinnedSummary.post(this)
                     val id = json.optString("id")
                     if (id.isNotBlank()) {
                         webSocket?.send(JSONObject().put("type", "ack").put("id", id).toString())
@@ -202,6 +206,8 @@ class NotifyConnectionService : Service() {
 
     companion object {
         const val NOTIF_ID = 1001
+        const val WIFI_PING_MINUTES = 5L
+        const val MOBILE_PING_MINUTES = 3L
 
         /** Estado real do serviço no processo atual (Prefs.isRunning é a intenção do usuário, usada no boot). */
         @Volatile
