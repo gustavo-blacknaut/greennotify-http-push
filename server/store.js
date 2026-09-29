@@ -54,8 +54,19 @@ function migrateLegacyJson() {
       }
     }
   })();
-  fs.renameSync(legacyFile, legacyFile + '.migrated');
-  console.log('data.json antigo importado para o SQLite (renomeado para data.json.migrated)');
+  // As apiKeys continuam válidas no SQLite; o arquivo seria só uma cópia a mais das chaves.
+  const hasDevice = db.prepare('SELECT 1 FROM devices WHERE deviceId = ?');
+  const hasNotif = db.prepare('SELECT 1 FROM notifications WHERE id = ?');
+  const allImported =
+    Object.keys(legacy.devices || {}).every(id => hasDevice.get(id)) &&
+    Object.values(legacy.notifications || {}).flat().every(n => hasNotif.get(n.id));
+  if (!allImported) {
+    fs.renameSync(legacyFile, legacyFile + '.migrated');
+    console.warn('data.json importado com divergências; mantido como data.json.migrated para conferência manual');
+    return;
+  }
+  fs.unlinkSync(legacyFile);
+  console.log('data.json antigo importado para o SQLite e apagado');
 }
 
 migrateLegacyJson();

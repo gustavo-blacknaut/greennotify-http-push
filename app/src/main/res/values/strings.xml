@@ -51,6 +51,8 @@
     <string name="service_reconnecting">Reconectando…</string>
     <string name="service_disconnected">Desconectado</string>
     <string name="service_invalid_key">Chave inválida — confira deviceId e apiKey</string>
+    <string name="service_stopped_title">GreenNotify parado</string>
+    <string name="status_stopped_reason">Status: parado — %1$s</string>
 
     <!-- Erros de rede -->
     <string name="error_server_not_configured">Servidor não configurado</string>

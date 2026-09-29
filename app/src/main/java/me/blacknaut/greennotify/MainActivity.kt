@@ -20,6 +20,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var editApiKey: EditText
     private lateinit var textStatus: TextView
 
+    // O serviço grava running/last_error ao parar sozinho: atualiza a tela mesmo com ela aberta.
+    private val prefsListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == Prefs.KEY_RUNNING || key == Prefs.KEY_LAST_ERROR) refreshStatus()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -43,6 +48,7 @@ class MainActivity : AppCompatActivity() {
                 editDeviceId.text.toString(),
                 editApiKey.text.toString()
             )
+            Prefs.setLastError(this, null)
             Toast.makeText(this, R.string.toast_config_saved, Toast.LENGTH_SHORT).show()
             refreshStatus()
         }
@@ -77,6 +83,11 @@ class MainActivity : AppCompatActivity() {
             textStatus.setText(R.string.status_not_configured)
             return
         }
+        val lastError = Prefs.getLastError(this)
+        if (!NotifyConnectionService.isAlive && lastError != null) {
+            textStatus.text = getString(R.string.status_stopped_reason, lastError)
+            return
+        }
         showStatus(NotifyConnectionService.isAlive)
     }
 
@@ -98,6 +109,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        Prefs.registerListener(this, prefsListener)
         refreshStatus()
+    }
+
+    override fun onPause() {
+        Prefs.unregisterListener(this, prefsListener)
+        super.onPause()
     }
 }

@@ -19,6 +19,7 @@ object NotificationHelper {
 
     // Notificações recebidas usam o id do servidor como tag: (tag, ALERT_ID) é único, sem colisão de hashCode.
     private const val ALERT_ID = 1
+    private const val SERVICE_STOPPED_TAG = "greennotify:service-stopped"
 
     fun createChannels(ctx: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -76,6 +77,22 @@ object NotificationHelper {
             .build()
 
         ctx.getSystemService(NotificationManager::class.java).notify(id, ALERT_ID, notification)
+    }
+
+    /** Avisa que o serviço parou sozinho; a notificação fixa do serviço some junto com ele. */
+    fun showServiceStopped(ctx: Context, reason: String) {
+        val open = PendingIntent.getActivity(
+            ctx, 0, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(ctx, CHANNEL_ALERTS)
+            .setSmallIcon(android.R.drawable.stat_notify_error)
+            .setContentTitle(ctx.getString(R.string.service_stopped_title))
+            .setContentText(reason)
+            .setAutoCancel(true)
+            .setContentIntent(open)
+            .build()
+        ctx.getSystemService(NotificationManager::class.java).notify(SERVICE_STOPPED_TAG, ALERT_ID, notification)
     }
 
     fun cancel(ctx: Context, id: String) {

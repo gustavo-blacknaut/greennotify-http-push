@@ -229,3 +229,18 @@ pra internet sem pensar duas vezes. Se o painel/VPS permitir, prefere deixar
 atrás de VPN ou pelo menos restringe por IP no firewall. A chave de admin e as
 chaves de cada dispositivo trafegam em texto puro, então trata isso como coisa
 sensível mesmo sendo "só" uma chave de notificação.
+
+### Limitações do rate limit
+
+Tem um limite contra quem tenta adivinhar chave: 20 respostas `401` (chave errada)
+em 15 minutos bloqueiam o IP com `429` até a janela passar, e o `/register` aceita
+10 tentativas a cada 15 minutos. Erro de validação (`400`) não conta. Só que ele é
+simples, e vale saber onde ele não ajuda:
+
+- **Fica em memória.** Reiniciar o servidor zera a contagem de todo mundo.
+- **É por IP.** Se várias aplicações suas rodam na mesma máquina e uma delas está
+  com a chave errada, ela pode bloquear as outras (mesmo IP) por 15 minutos.
+- **Atrás de proxy reverso (Nginx, Cloudflare, túnel etc.) todo mundo vira um IP só.**
+  O servidor enxerga o IP do proxy, então um único cliente errando a chave bloqueia
+  todos. Hoje não tem `trust proxy` configurado — se for colocar atrás de proxy,
+  isso precisa ser ajustado no código antes.

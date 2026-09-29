@@ -19,7 +19,9 @@ import java.util.concurrent.TimeUnit
 class NotifyConnectionService : Service() {
 
     private lateinit var client: OkHttpClient
+    // Estado só é tocado na main thread: os callbacks do OkHttp são repassados via handler.
     private var webSocket: WebSocket? = null
+    private var connectedConfig: String? = null
     private var shouldReconnect = true
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private var reconnectDelayMs = 2000L
@@ -41,10 +43,36 @@ class NotifyConnectionService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        shouldReconnect = true
-        if (webSocket == null) connect()
+        Prefs.setLastError(this, null)
         Prefs.setRunning(this, true)
+        shouldReconnect = true
+        // Mesmo config e conexão ativa: ignora o toque repetido. Config nova: troca a conexão.
+        if (webSocket == null || connectedConfig != currentConfig()) {
+            dropConnection()
+            reconnectDelayMs = 2000L
+            connect()
+        }
         return START_STICKY
+    }
+
+    private fun currentConfig(): String =
+        listOf(Prefs.getServerUrl(this), Prefs.getDeviceId(this), Prefs.getApiKey(this)).joinToString("\n")
+
+    private fun dropConnection() {
+        handler.removeCallbacksAndMessages(null)
+        val old = webSocket
+        webSocket = null
+        connectedConfig = null
+        old?.cancel()
+    }
+
+    private fun stopForInvalidKey() {
+        shouldReconnect = false
+        webSocket = null
+        connectedConfig = null
+        Prefs.setLastError(this, getString(R.string.service_invalid_key))
+        NotificationHelper.showServiceStopped(this, getString(R.string.service_invalid_key))
+        stopSelf()
     }
 
     private fun buildForegroundNotification(status: String): Notification {
@@ -83,45 +111,46 @@ class NotifyConnectionService : Service() {
             .build()
         val request = Request.Builder().url(wsUrl).build()
 
+        connectedConfig = currentConfig()
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
-            override fun onOpen(webSocket: WebSocket, response: Response) {
+            // Callbacks de uma conexão já substituída ou derrubada são ignorados.
+            private fun onMain(ws: WebSocket, block: () -> Unit) {
+                handler.post { if (webSocket === ws) block() }
+            }
+
+            override fun onOpen(webSocket: WebSocket, response: Response) = onMain(webSocket) {
                 reconnectDelayMs = 2000L
                 updateStatus(getString(R.string.service_connected, deviceId))
             }
 
-            override fun onMessage(webSocket: WebSocket, text: String) {
+            override fun onMessage(webSocket: WebSocket, text: String) = onMain(webSocket) {
                 handleMessage(text)
             }
 
             override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
-                handleMessage(bytes.utf8())
+                val text = bytes.utf8()
+                onMain(webSocket) { handleMessage(text) }
             }
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                if (code == CLOSE_UNAUTHORIZED) shouldReconnect = false
                 webSocket.close(1000, null)
+                onMain(webSocket) {
+                    if (code == CLOSE_UNAUTHORIZED) stopForInvalidKey()
+                }
             }
 
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                clearIfCurrent(webSocket)
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) = onMain(webSocket) {
+                this@NotifyConnectionService.webSocket = null
                 updateStatus(getString(R.string.service_reconnecting))
                 scheduleReconnect()
             }
 
-            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                clearIfCurrent(webSocket)
-                if (code == CLOSE_UNAUTHORIZED) {
-                    updateStatus(getString(R.string.service_invalid_key))
-                    return
-                }
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) = onMain(webSocket) {
+                this@NotifyConnectionService.webSocket = null
                 updateStatus(getString(R.string.service_disconnected))
                 scheduleReconnect()
             }
         })
-    }
-
-    private fun clearIfCurrent(ws: WebSocket) {
-        if (webSocket === ws) webSocket = null
     }
 
     private fun handleMessage(text: String) {
@@ -157,7 +186,9 @@ class NotifyConnectionService : Service() {
         shouldReconnect = false
         handler.removeCallbacksAndMessages(null)
         isAlive = false
-        webSocket?.close(1000, "service stopped")
+        val ws = webSocket
+        webSocket = null
+        ws?.close(1000, "service stopped")
         Prefs.setRunning(this, false)
         super.onDestroy()
     }
