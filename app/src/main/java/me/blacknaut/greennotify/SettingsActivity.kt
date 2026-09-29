@@ -10,47 +10,80 @@ import android.view.View
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.google.android.material.card.MaterialCardView
 import com.google.android.material.color.MaterialColors
+import com.google.android.material.materialswitch.MaterialSwitch
+import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
+import me.blacknaut.greennotify.NetworkInfo.Net
+import java.util.Locale
 
 class SettingsActivity : AppCompatActivity() {
 
     private lateinit var editServerUrl: TextInputEditText
     private lateinit var editDeviceId: TextInputEditText
     private lateinit var editApiKey: TextInputEditText
-    private lateinit var cardRealtime: MaterialCardView
-    private lateinit var cardEconomy: MaterialCardView
     private lateinit var cardBattery: View
     private lateinit var textHint: View
     private lateinit var textTestResult: TextView
-    private var wifiMinutes = 10
-    private var mobileMinutes = 15
+    private lateinit var wifi: NetPanel
+    private lateinit var mobile: NetPanel
 
-    private fun setupInterval(id: Int, current: Int, onPick: (Int) -> Unit) {
-        val view = findViewById<com.google.android.material.textfield.MaterialAutoCompleteTextView>(id)
-        val labels = Prefs.INTERVAL_OPTIONS.map { getString(R.string.interval_option, it) }.toTypedArray()
-        view.setSimpleItems(labels)
-        view.setText(getString(R.string.interval_option, current), false)
-        showCost(id, current)
-        view.setOnItemClickListener { _, _, pos, _ ->
-            onPick(Prefs.INTERVAL_OPTIONS[pos]); showCost(id, Prefs.INTERVAL_OPTIONS[pos])
-        }
-    }
+    /** Um painel de configuração (modo + intervalo + custo estimado) para uma rede. */
+    private inner class NetPanel(
+        val net: Net, modeId: Int, intervalLayoutId: Int, intervalId: Int, costId: Int
+    ) {
+        var kind = Policy.kind(this@SettingsActivity, net)
+        var pollMin = Policy.pollMin(this@SettingsActivity, net)
+        var pingMin = Policy.pingMin(this@SettingsActivity, net)
 
-    // Custo medido: cada checagem do modo economia acorda o rádio 1 vez e troca ~1,2 KB
-    // (634 B de dados do app medidos + cabeçalhos TCP/IP de uma conexão nova).
-    private fun showCost(dropdownId: Int, minutes: Int) {
-        val layout = findViewById<com.google.android.material.textfield.TextInputLayout>(
-            if (dropdownId == R.id.dropdownWifi) R.id.layoutWifi else R.id.layoutMobile
+        private val modeView = findViewById<MaterialAutoCompleteTextView>(modeId)
+        private val intervalLayout = findViewById<TextInputLayout>(intervalLayoutId)
+        private val intervalView = findViewById<MaterialAutoCompleteTextView>(intervalId)
+        private val costView = findViewById<TextView>(costId)
+        private val kindLabels = arrayOf(
+            getString(R.string.kind_realtime), getString(R.string.kind_polling), getString(R.string.kind_off)
         )
-        val wakes = 1440 / minutes
-        val mbMonth = wakes * 1.15 * 30 / 1024
-        var text = getString(R.string.interval_cost, wakes, String.format(java.util.Locale.forLanguageTag("pt-BR"), "%.1f", mbMonth))
-        if (dropdownId == R.id.dropdownMobile && minutes < 5 || dropdownId == R.id.dropdownWifi && minutes < 5) {
-            text += " " + getString(R.string.interval_warn_realtime)
+
+        init {
+            modeView.setSimpleItems(kindLabels)
+            modeView.setOnItemClickListener { _, _, pos, _ -> kind = Policy.KINDS[pos]; refresh() }
+            intervalView.setOnItemClickListener { _, _, pos, _ ->
+                if (kind == Policy.REALTIME) pingMin = Policy.PING_OPTIONS[pos] else pollMin = Policy.POLL_OPTIONS[pos]
+                refresh()
+            }
+            refresh()
         }
-        layout.helperText = text
+
+        fun set(kind: String, pollMin: Int, pingMin: Int) {
+            this.kind = kind; this.pollMin = pollMin; this.pingMin = pingMin
+            refresh()
+        }
+
+        fun refresh() {
+            modeView.setText(kindLabels[Policy.KINDS.indexOf(kind)], false)
+            when (kind) {
+                Policy.REALTIME -> showInterval(R.string.hint_ping, Policy.PING_OPTIONS, pingMin)
+                Policy.POLLING -> showInterval(R.string.hint_poll, Policy.POLL_OPTIONS, pollMin)
+                else -> intervalLayout.visibility = View.GONE
+            }
+            costView.text = if (kind == Policy.OFF) getString(R.string.cost_off) else {
+                val wakes = Policy.wakesPerDay(kind, pollMin, pingMin)
+                val mb = String.format(Locale.forLanguageTag("pt-BR"), "%.1f", Policy.mbPerMonth(kind, pollMin, pingMin))
+                val impact = getString(listOf(R.string.impact_low, R.string.impact_mid, R.string.impact_high)[Policy.impact(wakes)])
+                getString(R.string.cost_format, wakes, mb, impact)
+            }
+            refreshExtras()
+        }
+
+        private fun showInterval(hint: Int, options: IntArray, current: Int) {
+            intervalLayout.visibility = View.VISIBLE
+            intervalLayout.hint = getString(hint)
+            intervalView.setSimpleItems(options.map { getString(R.string.interval_min, it) }.toTypedArray())
+            intervalView.setText(getString(R.string.interval_min, current), false)
+        }
+
+        fun save() = Policy.save(this@SettingsActivity, net, kind, pollMin, pingMin)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,8 +94,6 @@ class SettingsActivity : AppCompatActivity() {
         editServerUrl = findViewById(R.id.editServerUrl)
         editDeviceId = findViewById(R.id.editDeviceId)
         editApiKey = findViewById(R.id.editApiKey)
-        cardRealtime = findViewById(R.id.cardRealtime)
-        cardEconomy = findViewById(R.id.cardEconomy)
         cardBattery = findViewById(R.id.cardBattery)
         textHint = findViewById(R.id.textHint)
         textTestResult = findViewById(R.id.textTestResult)
@@ -70,62 +101,59 @@ class SettingsActivity : AppCompatActivity() {
         editServerUrl.setText(Prefs.getServerUrl(this))
         editDeviceId.setText(Prefs.getDeviceId(this))
         editApiKey.setText(Prefs.getApiKey(this))
-        selectMode(Prefs.getMode(this))
-        val switchRemind = findViewById<com.google.android.material.materialswitch.MaterialSwitch>(R.id.switchRemind)
+
+        wifi = NetPanel(Net.WIFI, R.id.dropdownModeWifi, R.id.layoutIntervalWifi, R.id.dropdownIntervalWifi, R.id.textCostWifi)
+        mobile = NetPanel(Net.MOBILE, R.id.dropdownModeMobile, R.id.layoutIntervalMobile, R.id.dropdownIntervalMobile, R.id.textCostMobile)
+
+        findViewById<View>(R.id.chipPresetRealtime).setOnClickListener {
+            wifi.set(Policy.REALTIME, wifi.pollMin, 5); mobile.set(Policy.REALTIME, mobile.pollMin, 5)
+        }
+        findViewById<View>(R.id.chipPresetHybrid).setOnClickListener {
+            wifi.set(Policy.REALTIME, wifi.pollMin, 5); mobile.set(Policy.POLLING, 15, mobile.pingMin)
+        }
+        findViewById<View>(R.id.chipPresetPolling).setOnClickListener {
+            wifi.set(Policy.POLLING, 10, wifi.pingMin); mobile.set(Policy.POLLING, 15, mobile.pingMin)
+        }
+
+        val switchRemind = findViewById<MaterialSwitch>(R.id.switchRemind)
         switchRemind.isChecked = Prefs.isRemindEnabled(this)
         switchRemind.setOnCheckedChangeListener { _, on -> Prefs.setRemindEnabled(this, on) }
-        setupInterval(R.id.dropdownWifi, Prefs.getWifiMinutes(this)) { wifiMinutes = it }
-        setupInterval(R.id.dropdownMobile, Prefs.getMobileMinutes(this)) { mobileMinutes = it }
-        wifiMinutes = Prefs.getWifiMinutes(this); mobileMinutes = Prefs.getMobileMinutes(this)
-        selectMode(Prefs.getMode(this))
 
-        cardRealtime.setOnClickListener { selectMode(Prefs.MODE_REALTIME) }
-        cardEconomy.setOnClickListener { selectMode(Prefs.MODE_ECONOMY) }
         findViewById<View>(R.id.buttonBack).setOnClickListener { finish() }
         findViewById<View>(R.id.buttonBattery).setOnClickListener { requestIgnoreBatteryOptimizations() }
         findViewById<View>(R.id.buttonTest).setOnClickListener { testConnection() }
+        findViewById<View>(R.id.buttonUsage).setOnClickListener { startActivity(Intent(this, UsageActivity::class.java)) }
         findViewById<View>(R.id.buttonSave).setOnClickListener { save() }
+        refreshExtras()
     }
 
     override fun onResume() {
         super.onResume()
-        refreshBatteryCard()
+        refreshExtras()
     }
 
-    private fun selectedMode() = if (cardEconomy.isChecked) Prefs.MODE_ECONOMY else Prefs.MODE_REALTIME
+    private fun anyRealtimeSelected() = wifi.kind == Policy.REALTIME || mobile.kind == Policy.REALTIME
 
-    private fun selectMode(mode: String) {
-        cardRealtime.isChecked = mode == Prefs.MODE_REALTIME
-        cardEconomy.isChecked = mode == Prefs.MODE_ECONOMY
-        val stroke = MaterialColors.getColor(cardRealtime, androidx.appcompat.R.attr.colorPrimary)
-        val normal = MaterialColors.getColor(cardRealtime, com.google.android.material.R.attr.colorOutlineVariant)
-        val width = resources.displayMetrics.density
-        for (card in listOf(cardRealtime, cardEconomy)) {
-            card.strokeColor = if (card.isChecked) stroke else normal
-            card.strokeWidth = ((if (card.isChecked) 2 else 1) * width).toInt()
-        }
-        textHint.visibility = if (mode == Prefs.MODE_REALTIME) View.VISIBLE else View.GONE
-        findViewById<View>(R.id.groupIntervals).visibility = if (mode == Prefs.MODE_ECONOMY) View.VISIBLE else View.GONE
-        refreshBatteryCard()
-    }
-
-    // Só no tempo real, e só enquanto o app ainda não foi liberado.
-    private fun refreshBatteryCard() {
+    // Dica e botão de bateria só fazem sentido com alguma rede em tempo real, e enquanto o app não foi liberado.
+    private fun refreshExtras() {
+        if (!::wifi.isInitialized || !::mobile.isInitialized) return
+        val realtime = anyRealtimeSelected()
+        textHint.visibility = if (realtime) View.VISIBLE else View.GONE
         val exempt = getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)
-        cardBattery.visibility = if (selectedMode() == Prefs.MODE_REALTIME && !exempt) View.VISIBLE else View.GONE
+        cardBattery.visibility = if (realtime && !exempt) View.VISIBLE else View.GONE
     }
 
     private fun saveForm() {
         Prefs.save(this, editServerUrl.text.toString(), editDeviceId.text.toString(), editApiKey.text.toString())
-        Prefs.setMode(this, selectedMode())
-        Prefs.setIntervals(this, wifiMinutes, mobileMinutes)
+        wifi.save()
+        mobile.save()
         Prefs.setLastError(this, null)
     }
 
     private fun save() {
         val wasActive = Connection.isActive(this)
         saveForm()
-        // Se já estava recebendo, aplica a configuração nova na hora (troca servidor/chave/modo).
+        // Se já estava recebendo, aplica a configuração nova na hora (servidor, chave, redes e intervalos).
         if (wasActive && Prefs.isConfigured(this)) Connection.start(this)
         Toast.makeText(this, R.string.toast_saved, Toast.LENGTH_SHORT).show()
         finish()

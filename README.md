@@ -115,19 +115,43 @@ O app pede a permissão de notificações (Android 13+) na primeira abertura.
   mostram "Desfazer" por alguns segundos, e a exclusão só vai para o servidor depois disso.
 - Cada notificação tem botões para abrir o link, concluir (ou reabrir) e arquivar (ou
   restaurar).
-- O cartão verde no topo mostra se está conectado e tem o botão Iniciar/Parar. Servidor,
-  chave e modo ficam na engrenagem (Configurações), que também tem "Testar conexão".
+- O cartão verde no topo mostra a rede atual e como está recebendo, e tem o botão Iniciar/Parar.
+  Servidor, chave e o modo de cada rede ficam na engrenagem (Configurações), que também tem
+  "Testar conexão".
 
-### Modos de recebimento
+### Como receber: cada rede com a sua regra
 
-- **Tempo real** (padrão): conexão aberta com o servidor, a notificação chega na hora.
-  Consome pouco: o app manda um sinal de vida a cada 3 minutos e o servidor só pinga quem
-  ficou calado. Enquanto está ativo, só a logo fica na barra de status (como a chave da VPN).
-  Em Samsung/Xiaomi, use "Liberar em segundo plano" nas configurações para o sistema não
-  derrubar a conexão.
-- **Economia**: sem conexão aberta. O app consulta o servidor a cada ~10 minutos e mostra
-  o que chegou. Consumo quase zero, mas com esse atraso (o Android ainda pode segurar um
-  pouco mais com o celular parado e a tela apagada).
+Em **Configurações › Como receber** você escolhe, separadamente para **Wi‑Fi** e para **dados móveis**,
+o que o app faz:
+
+- **Tempo real:** conexão aberta, a notificação chega na hora. Você escolhe de quanto em quanto
+  tempo o app manda um "sinal de vida" (1 a 15 min; padrão 5 min). Intervalo maior gasta menos
+  bateria, mas demora mais para notar que a conexão caiu.
+- **Verificar de tempos em tempos:** sem conexão aberta. O app consulta o servidor a cada
+  2, 5, 10, 15, 30 ou 60 minutos e mostra o que chegou (mínimo do Android para tarefas em
+  segundo plano; com o celular parado e a tela apagada o sistema pode atrasar um pouco).
+- **Desligado:** não recebe nessa rede.
+
+Atalhos de um toque: **Só tempo real**, **Tempo real no Wi‑Fi + verificar nos dados** e **Só
+economia**. Ao trocar de Wi‑Fi para dados (ou o contrário), o app reavalia na hora: abre ou fecha a
+conexão e, se a nova rede for de "verificar", já faz uma verificação.
+
+Abaixo de cada rede aparece o **custo estimado** (acordadas do rádio por dia, MB por mês e impacto).
+O que pesa na bateria é o número de vezes que o rádio do celular acorda, não o volume de dados.
+Números medidos: uma verificação = 1 acordada e ~1,2 KB; um sinal de vida = 1 acordada e ~0,2 KB;
+receber uma notificação em tempo real = ~0,3 KB.
+
+### Tela de consumo
+
+No ícone de gráfico (topo da tela inicial) ou em Configurações › Ver consumo: para hoje e para os
+últimos 7 dias, separado em Wi‑Fi e dados móveis, mostra o tráfego real do app (contador do próprio
+Android, com cabeçalhos), quantas verificações foram feitas, quanto tempo a conexão ficou aberta e
+quantas notificações chegaram, mais a estimativa da configuração atual. O botão **Ver bateria no
+sistema** abre a tela do Android com o consumo real em mAh/% do app: compare depois de alguns dias em
+cada configuração.
+
+Em Samsung/Xiaomi, use **Liberar em segundo plano** nas configurações para o sistema não derrubar a
+conexão de tempo real.
 
 ### Aviso fixo de pendentes e lembrete
 

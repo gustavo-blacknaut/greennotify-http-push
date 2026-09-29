@@ -4,18 +4,19 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
 
-/** Liga/desliga o recebimento conforme o modo escolhido (tempo real ou economia). */
+/** Liga/desliga o recebimento conforme a política de cada rede (Wi-Fi e dados móveis). */
 object Connection {
 
     fun start(ctx: Context) {
         Prefs.setLastError(ctx, null)
-        if (Prefs.getMode(ctx) == Prefs.MODE_ECONOMY) {
-            ctx.stopService(Intent(ctx, NotifyConnectionService::class.java))
-            Prefs.setRunning(ctx, true)
-        } else {
+        Prefs.setRunning(ctx, true)
+        // O serviço só existe se alguma rede estiver em tempo real; ele mesmo cuida de trocar de rede.
+        if (Policy.anyRealtime(ctx)) {
             ContextCompat.startForegroundService(ctx, Intent(ctx, NotifyConnectionService::class.java))
+        } else {
+            ctx.stopService(Intent(ctx, NotifyConnectionService::class.java))
         }
-        // Nos dois modos: checagem a cada 10 min (busca no economia; aviso fixo e lembrete sempre).
+        // Rodada periódica: consulta nas redes de "consultar" e cuida do aviso fixo e do lembrete.
         EconomyWorker.schedule(ctx)
     }
 
@@ -26,6 +27,5 @@ object Connection {
         PinnedSummary.clear(ctx)
     }
 
-    fun isActive(ctx: Context): Boolean =
-        NotifyConnectionService.isAlive || (Prefs.getMode(ctx) == Prefs.MODE_ECONOMY && Prefs.isRunning(ctx))
+    fun isActive(ctx: Context): Boolean = Prefs.isRunning(ctx)
 }

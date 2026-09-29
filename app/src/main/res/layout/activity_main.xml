@@ -60,6 +60,15 @@
         </LinearLayout>
 
         <Button
+            android:id="@+id/buttonUsage"
+            style="?attr/materialIconButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/title_usage"
+            app:icon="@drawable/ic_chart"
+            app:iconTint="?attr/colorOnSurfaceVariant" />
+
+        <Button
             android:id="@+id/buttonSettings"
             style="?attr/materialIconButtonStyle"
             android:layout_width="wrap_content"

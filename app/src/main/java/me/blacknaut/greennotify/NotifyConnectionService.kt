@@ -3,7 +3,11 @@ package me.blacknaut.greennotify
 import android.app.Notification
 import android.app.Service
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.os.IBinder
+import me.blacknaut.greennotify.NetworkInfo.Net
 import okhttp3.*
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okio.ByteString
@@ -11,9 +15,10 @@ import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 /**
- * Serviço em primeiro plano que mantém uma conexão WebSocket persistente com o servidor
- * GreenNotify (http:// ou ws://, sem HTTPS) para receber notificações em tempo real.
- * Reconecta automaticamente se a conexão cair.
+ * Serviço em primeiro plano do modo "tempo real". Mantém um WebSocket aberto com o servidor
+ * (http:// ou ws://, sem HTTPS) SOMENTE nas redes configuradas como tempo real: ao trocar de Wi‑Fi para
+ * dados (ou o contrário) ele reavalia a política daquela rede, abre ou fecha a conexão e, se a nova rede
+ * for de "consultar a cada N minutos", entrega o trabalho ao EconomyWorker.
  */
 class NotifyConnectionService : Service() {
 
@@ -22,9 +27,17 @@ class NotifyConnectionService : Service() {
     private var webSocket: WebSocket? = null
     private var connectedConfig: String? = null
     private var lastStatus: String? = null
+    private var lastPolicyKey: String? = null
+    private var callbackRegistered = false
     private var shouldReconnect = true
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private var reconnectDelayMs = 2000L
+
+    private val netCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) { handler.post { evaluate() } }
+        override fun onLost(network: Network) { handler.post { evaluate() } }
+        override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) { handler.post { evaluate() } }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -37,27 +50,50 @@ class NotifyConnectionService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // startForeground antes de qualquer saída: startForegroundService exige a chamada em até 5s.
-        // Reusa o último status: um "Iniciar" repetido não reconecta, então não pode voltar a "Conectando…".
         startForeground(NOTIF_ID, buildForegroundNotification(lastStatus ?: getString(R.string.service_connecting)))
-        if (!Prefs.isConfigured(this)) {
+        if (!Prefs.isConfigured(this) || !Policy.anyRealtime(this)) {
             stopSelf()
             return START_NOT_STICKY
         }
         Prefs.setLastError(this, null)
-        Prefs.setRunning(this, true)
         shouldReconnect = true
-        // Mesmo config e conexão ativa: ignora o toque repetido. Config nova: troca a conexão.
-        if (webSocket == null || connectedConfig != currentConfig()) {
+        if (!callbackRegistered) {
+            getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(netCallback)
+            callbackRegistered = true
+        }
+        evaluate()
+        return START_STICKY
+    }
+
+    /** Decide, para a rede ativa agora, se deve haver conexão aberta. Idempotente: pode ser chamada à vontade. */
+    private fun evaluate() {
+        if (!shouldReconnect || !Prefs.isConfigured(this)) return
+        val p = Policy.current(this)
+        Stats.sample(this, p.net)
+        val key = "${p.net}|${p.kind}|${p.pollMin}|${p.pingMin}"
+        val wantsSocket = p.net != Net.NONE && p.kind == Policy.REALTIME
+        if (!wantsSocket) {
+            if (webSocket != null || connectedConfig != null) {
+                closeCounting()
+                dropConnection()
+            }
+            updateStatus(if (p.net == Net.NONE) getString(R.string.service_no_network) else "")
+            // Rede de "consultar": começa a consultar já e depois no intervalo dela.
+            if (key != lastPolicyKey && p.kind == Policy.POLLING) EconomyWorker.schedule(this)
+        } else if (webSocket == null || connectedConfig != configKey(p)) {
+            closeCounting()
             dropConnection()
             reconnectDelayMs = 2000L
             updateStatus(getString(R.string.service_connecting))
-            connect()
+            connect(p)
         }
-        return START_STICKY
+        lastPolicyKey = key
     }
 
     private fun currentConfig(): String =
         listOf(Prefs.getServerUrl(this), Prefs.getDeviceId(this), Prefs.getApiKey(this)).joinToString("\n")
+
+    private fun configKey(p: Policy.Current) = currentConfig() + "\n" + p.net + "\n" + p.pingMin
 
     private fun dropConnection() {
         handler.removeCallbacksAndMessages(null)
@@ -67,10 +103,19 @@ class NotifyConnectionService : Service() {
         old?.cancel()
     }
 
+    /** Soma ao consumo o tempo que o WebSocket ficou aberto. */
+    private fun closeCounting() {
+        val since = openSince
+        if (since > 0) Stats.addWsSeconds(this, openNet, (System.currentTimeMillis() - since) / 1000)
+        openSince = 0
+    }
+
     private fun stopForInvalidKey() {
         shouldReconnect = false
+        closeCounting()
         webSocket = null
         connectedConfig = null
+        Prefs.setRunning(this, false)
         Prefs.setLastError(this, getString(R.string.service_invalid_key))
         NotificationHelper.showServiceStopped(this, getString(R.string.service_invalid_key))
         stopSelf()
@@ -83,14 +128,14 @@ class NotifyConnectionService : Service() {
         return NotificationHelper.pinned(this, foreground = true, alert = false)
     }
 
-    /** [status] vazio = conectado e tudo certo (não mostra texto nenhum). */
+    /** [status] vazio = tudo certo (não mostra texto nenhum). */
     private fun updateStatus(status: String) {
         lastStatus = status
         val nm = getSystemService(android.app.NotificationManager::class.java)
         nm.notify(NOTIF_ID, buildForegroundNotification(status))
     }
 
-    private fun connect() {
+    private fun connect(p: Policy.Current) {
         val serverUrl = Prefs.getServerUrl(this)
         val deviceId = Prefs.getDeviceId(this)
         val apiKey = Prefs.getApiKey(this)
@@ -111,11 +156,9 @@ class NotifyConnectionService : Service() {
             .build()
         val request = Request.Builder().url(wsUrl).build()
 
-        connectedConfig = currentConfig()
-        // Cada ping acorda o rádio. Nos dados móveis as operadoras derrubam conexões paradas mais cedo
-        // (3 min é seguro); no Wi‑Fi o roteador aguenta mais (5 min). Trocar de rede reconecta e reavalia.
-        val ping = if (NetworkInfo.isWifi(this)) WIFI_PING_MINUTES else MOBILE_PING_MINUTES
-        val wsClient = client.newBuilder().pingInterval(ping, TimeUnit.MINUTES).build()
+        connectedConfig = configKey(p)
+        // Cada sinal de vida acorda o rádio: o intervalo é escolhido nas configurações, por tipo de rede.
+        val wsClient = client.newBuilder().pingInterval(p.pingMin.toLong(), TimeUnit.MINUTES).build()
         webSocket = wsClient.newWebSocket(request, object : WebSocketListener() {
             // Callbacks de uma conexão já substituída ou derrubada são ignorados.
             private fun onMain(ws: WebSocket, block: () -> Unit) {
@@ -124,6 +167,8 @@ class NotifyConnectionService : Service() {
 
             override fun onOpen(webSocket: WebSocket, response: Response) = onMain(webSocket) {
                 reconnectDelayMs = 2000L
+                openSince = System.currentTimeMillis()
+                openNet = p.net
                 updateStatus("")
                 PinnedSummary.refreshAsync(this@NotifyConnectionService)
             }
@@ -145,13 +190,17 @@ class NotifyConnectionService : Service() {
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) = onMain(webSocket) {
+                closeCounting()
                 this@NotifyConnectionService.webSocket = null
+                connectedConfig = null
                 updateStatus(getString(R.string.service_reconnecting))
                 scheduleReconnect()
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) = onMain(webSocket) {
+                closeCounting()
                 this@NotifyConnectionService.webSocket = null
+                connectedConfig = null
                 updateStatus(getString(R.string.service_disconnected))
                 scheduleReconnect()
             }
@@ -164,6 +213,8 @@ class NotifyConnectionService : Service() {
             when (json.optString("type")) {
                 "notification" -> {
                     NotificationHelper.showIncoming(this, json)
+                    Stats.addMessage(this, openNet)
+                    Stats.sample(this, openNet)
                     // Conta localmente (sem ir ao servidor); a contagem é conferida a cada reconexão.
                     Prefs.setPending(this, Prefs.getPendingCount(this) + 1, json.optString("title"))
                     PinnedSummary.post(this)
@@ -184,9 +235,7 @@ class NotifyConnectionService : Service() {
 
     private fun scheduleReconnect() {
         if (!shouldReconnect) return
-        handler.postDelayed({
-            if (shouldReconnect && webSocket == null) connect()
-        }, reconnectDelayMs)
+        handler.postDelayed({ evaluate() }, reconnectDelayMs)
         reconnectDelayMs = (reconnectDelayMs * 2).coerceAtMost(60_000L)
     }
 
@@ -194,11 +243,15 @@ class NotifyConnectionService : Service() {
         shouldReconnect = false
         handler.removeCallbacksAndMessages(null)
         isAlive = false
+        closeCounting()
+        if (callbackRegistered) {
+            try { getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(netCallback) } catch (_: Exception) {}
+            callbackRegistered = false
+        }
         val ws = webSocket
         webSocket = null
         ws?.close(1000, "service stopped")
-        // Ao trocar para o modo economia o serviço é parado, mas o app continua "rodando" (via WorkManager).
-        if (Prefs.getMode(this) == Prefs.MODE_REALTIME) Prefs.setRunning(this, false)
+        // Não mexe em Prefs.isRunning: parar o serviço pode ser só uma troca para uma rede de "consultar".
         super.onDestroy()
     }
 
@@ -206,13 +259,20 @@ class NotifyConnectionService : Service() {
 
     companion object {
         const val NOTIF_ID = 1001
-        const val WIFI_PING_MINUTES = 5L
-        const val MOBILE_PING_MINUTES = 3L
 
         /** Estado real do serviço no processo atual (Prefs.isRunning é a intenção do usuário, usada no boot). */
         @Volatile
         var isAlive = false
             private set
+
+        /** Quando o WebSocket abriu e em qual rede (0 = fechado): a tela de consumo soma o tempo em andamento. */
+        @Volatile
+        var openSince = 0L
+            private set
+        @Volatile
+        var openNet = Net.NONE
+            private set
+
         private const val CLOSE_UNAUTHORIZED = 4001
     }
 }

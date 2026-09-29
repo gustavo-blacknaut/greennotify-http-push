@@ -6,7 +6,9 @@
 
     <!-- Tela inicial: cabeçalho -->
     <string name="header_realtime">Conectado · tempo real</string>
-    <string name="header_economy">Modo economia</string>
+    <string name="header_polling">Verificando a cada %1$d min</string>
+    <string name="header_off">Pausado nesta rede</string>
+    <string name="header_nonet">Sem rede</string>
     <string name="header_stopped">Desconectado</string>
     <string name="header_setup">Não configurado</string>
     <string name="header_error">Precisa de atenção</string>
@@ -15,9 +17,16 @@
     <string name="card_setup_title">Configure o servidor</string>
     <string name="card_setup_subtitle">Informe a URL e a chave de API para começar</string>
     <string name="card_realtime_title">Tempo real ativo</string>
-    <string name="card_realtime_subtitle">Recebendo notificações na hora</string>
+    <string name="card_realtime_subtitle">Recebendo na hora · %1$s</string>
     <string name="card_economy_title">Modo economia</string>
-    <string name="card_economy_subtitle">Verificando no intervalo escolhido</string>
+    <string name="card_economy_subtitle">%1$s: verificando a cada %2$d minutos</string>
+    <string name="card_off_title">Pausado nesta rede</string>
+    <string name="card_off_subtitle">%1$s está desligado nas configurações</string>
+    <string name="card_nonet_title">Sem conexão</string>
+    <string name="card_nonet_subtitle">Volta a receber quando a rede voltar</string>
+    <string name="net_wifi">Wi‑Fi</string>
+    <string name="net_mobile">dados móveis</string>
+    <string name="title_usage">Consumo</string>
     <string name="card_stopped_title">Parado</string>
     <string name="card_stopped_subtitle">Toque em Iniciar para receber notificações</string>
     <string name="card_error_title">Conexão parada</string>
@@ -48,7 +57,6 @@
 
     <!-- Configurações -->
     <string name="section_server">SERVIDOR</string>
-    <string name="section_mode">MODO DE RECEBIMENTO</string>
     <string name="hint_server_url">URL do servidor</string>
     <string name="helper_server_url">Ex.: http://192.168.0.10:8080</string>
     <string name="hint_device_id">ID deste dispositivo</string>
@@ -57,15 +65,6 @@
     <string name="test_running">Testando…</string>
     <string name="test_ok">Conexão OK ✓</string>
     <string name="test_fill_all">Preencha URL, ID e chave</string>
-    <string name="mode_realtime_title">Tempo real</string>
-    <string name="mode_realtime_desc">Chega na hora. Medido: acorda o rádio 1 vez a cada 5 min no Wi‑Fi (288 por dia) e a cada 3 min nos dados (480 por dia), ~2 MB por mês.</string>
-    <string name="mode_economy_title">Economia</string>
-    <string name="mode_economy_desc">Verifica de tempos em tempos (escolha abaixo o intervalo no Wi‑Fi e nos dados). Sem conexão aberta.</string>
-    <string name="hint_interval_wifi">Verificar no Wi‑Fi a cada</string>
-    <string name="hint_interval_mobile">Verificar nos dados móveis a cada</string>
-    <string name="interval_option">%1$d minutos</string>
-    <string name="interval_cost">≈ %1$d acordadas do rádio por dia · ≈ %2$s MB por mês</string>
-    <string name="interval_warn_realtime">Nesse ritmo o Tempo real gasta menos bateria e chega na hora.</string>
     <string name="battery_title">Liberar em segundo plano</string>
     <string name="battery_desc">Recomendado em Samsung e Xiaomi: impede que o sistema desligue a conexão. Não aumenta o consumo.</string>
     <string name="button_allow">Liberar</string>
@@ -102,6 +101,7 @@
     <string name="service_not_configured">Não configurado</string>
     <string name="service_reconnecting">Reconectando…</string>
     <string name="service_disconnected">Desconectado</string>
+    <string name="service_no_network">Sem rede</string>
     <string name="service_invalid_key">Chave inválida — confira o ID e a chave</string>
     <string name="service_stopped_title">GreenNotify parado</string>
 
@@ -110,4 +110,47 @@
     <string name="error_invalid_server_url">URL do servidor inválida</string>
     <string name="error_network">Não consegui falar com o servidor</string>
     <string name="error_http">Erro HTTP %1$d</string>
+
+    <!-- Como receber por rede -->
+    <string name="section_receive">COMO RECEBER</string>
+    <string name="receive_intro">Escolha o que fazer em cada tipo de rede. Dá para receber na hora no Wi‑Fi e só verificar de tempos em tempos nos dados, por exemplo. O custo estimado de cada escolha aparece abaixo; o consumo real do seu aparelho fica em Consumo.</string>
+    <string name="preset_realtime">Só tempo real</string>
+    <string name="preset_hybrid">Tempo real no Wi‑Fi, verificar nos dados</string>
+    <string name="preset_polling">Só economia</string>
+    <string name="net_wifi_title">Wi‑Fi</string>
+    <string name="net_mobile_title">Dados móveis</string>
+    <string name="hint_mode">O que fazer nesta rede</string>
+    <string name="kind_realtime">Tempo real (conexão aberta)</string>
+    <string name="kind_polling">Verificar de tempos em tempos</string>
+    <string name="kind_off">Desligado</string>
+    <string name="hint_ping">Sinal de vida a cada</string>
+    <string name="hint_poll">Verificar a cada</string>
+    <string name="interval_min">%1$d min</string>
+    <string name="cost_format">≈ %1$d acordadas do rádio por dia · ≈ %2$s MB por mês · impacto %3$s</string>
+    <string name="cost_off">Não recebe notificações nesta rede.</string>
+    <string name="impact_low">baixo</string>
+    <string name="impact_mid">médio</string>
+    <string name="impact_high">alto</string>
+    <string name="button_usage">Ver consumo</string>
+
+    <!-- Tela de consumo -->
+    <string name="usage_intro">Tráfego: contado em tempo real pelo Android para este app (inclui cabeçalhos de rede) e separado por Wi‑Fi e dados. Verificações, conexão aberta e notificações: contados pelo app. A bateria em mAh só o sistema mede (botão no fim da tela).</string>
+    <string name="usage_today">HOJE</string>
+    <string name="usage_week">ÚLTIMOS 7 DIAS</string>
+    <string name="usage_plan">SUA CONFIGURAÇÃO (ESTIMATIVA POR DIA)</string>
+    <string name="usage_traffic">Tráfego do app</string>
+    <string name="usage_polls">Verificações feitas</string>
+    <string name="usage_open">Conexão aberta</string>
+    <string name="usage_messages">Notificações recebidas</string>
+    <string name="usage_mode">Modo</string>
+    <string name="usage_wakes">Acordadas do rádio por dia</string>
+    <string name="usage_month">Dados por mês</string>
+    <string name="usage_impact">Impacto na bateria</string>
+    <string name="plan_realtime">Tempo real (sinal a cada %1$d min)</string>
+    <string name="plan_polling">Verificar a cada %1$d min</string>
+    <string name="duration_hm">%1$d h %2$d min</string>
+    <string name="duration_m">%1$d min</string>
+    <string name="duration_zero">0 min</string>
+    <string name="button_system_battery">Ver bateria no sistema</string>
+    <string name="usage_battery_note">Na tela do sistema, procure GreenNotify: ela mostra o consumo real em %% e mAh e o tempo em segundo plano. Compare depois de alguns dias em cada configuração.</string>
 </resources>

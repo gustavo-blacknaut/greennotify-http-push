@@ -65,6 +65,7 @@ class MainActivity : AppCompatActivity() {
         textEmptySubtitle = findViewById(R.id.textEmptySubtitle)
 
         findViewById<View>(R.id.buttonSettings).setOnClickListener { openSettings() }
+        findViewById<View>(R.id.buttonUsage).setOnClickListener { startActivity(Intent(this, UsageActivity::class.java)) }
         buttonToggle.setOnClickListener { onToggle() }
 
         findViewById<ChipGroup>(R.id.chipsFilter).setOnCheckedStateChangeListener { _, ids ->
@@ -131,40 +132,47 @@ class MainActivity : AppCompatActivity() {
     private fun refreshStatus() = showStatus(Connection.isActive(this))
 
     private fun showStatus(active: Boolean) {
-        val economy = Prefs.getMode(this) == Prefs.MODE_ECONOMY
         val error = Prefs.getLastError(this)
         val ok = MaterialColors.getColor(statusDot, androidx.appcompat.R.attr.colorPrimary)
         val bad = MaterialColors.getColor(statusDot, androidx.appcompat.R.attr.colorError)
         val off = ContextCompat.getColor(this, R.color.status_off)
+        val p = Policy.current(this)
+        val net = getString(if (p.net == NetworkInfo.Net.MOBILE) R.string.net_mobile else R.string.net_wifi)
 
         when {
             !Prefs.isConfigured(this) -> render(R.drawable.ic_settings, R.string.card_setup_title,
                 getString(R.string.card_setup_subtitle), R.string.button_configure, R.drawable.ic_settings,
-                R.string.header_setup, off, filled = true)
-            active && economy -> render(R.drawable.ic_battery, R.string.card_economy_title,
-                getString(R.string.card_economy_subtitle), R.string.button_stop, R.drawable.ic_stop,
-                R.string.header_economy, ok, filled = false)
+                getString(R.string.header_setup), off, filled = true)
+            active && p.net == NetworkInfo.Net.NONE -> render(R.drawable.ic_power_off, R.string.card_nonet_title,
+                getString(R.string.card_nonet_subtitle), R.string.button_stop, R.drawable.ic_stop,
+                getString(R.string.header_nonet), off, filled = false)
+            active && p.kind == Policy.POLLING -> render(R.drawable.ic_battery, R.string.card_economy_title,
+                getString(R.string.card_economy_subtitle, net, p.pollMin), R.string.button_stop, R.drawable.ic_stop,
+                getString(R.string.header_polling, p.pollMin), ok, filled = false)
+            active && p.kind == Policy.OFF -> render(R.drawable.ic_power_off, R.string.card_off_title,
+                getString(R.string.card_off_subtitle, net), R.string.button_stop, R.drawable.ic_stop,
+                getString(R.string.header_off), off, filled = false)
             active -> render(R.drawable.ic_bolt, R.string.card_realtime_title,
-                getString(R.string.card_realtime_subtitle), R.string.button_stop, R.drawable.ic_stop,
-                R.string.header_realtime, ok, filled = false)
+                getString(R.string.card_realtime_subtitle, net), R.string.button_stop, R.drawable.ic_stop,
+                getString(R.string.header_realtime), ok, filled = false)
             error != null -> render(R.drawable.ic_power_off, R.string.card_error_title,
-                error, R.string.button_start, R.drawable.ic_play, R.string.header_error, bad, filled = true)
+                error, R.string.button_start, R.drawable.ic_play, getString(R.string.header_error), bad, filled = true)
             else -> render(R.drawable.ic_power_off, R.string.card_stopped_title,
                 getString(R.string.card_stopped_subtitle), R.string.button_start, R.drawable.ic_play,
-                R.string.header_stopped, off, filled = true)
+                getString(R.string.header_stopped), off, filled = true)
         }
     }
 
     private fun render(
         icon: Int, title: Int, subtitle: String, button: Int, buttonIcon: Int,
-        header: Int, dotColor: Int, filled: Boolean
+        header: String, dotColor: Int, filled: Boolean
     ) {
         imageStatus.setImageResource(icon)
         textStatusTitle.setText(title)
         textStatusSubtitle.text = subtitle
         buttonToggle.setText(button)
         buttonToggle.setIconResource(buttonIcon)
-        textHeaderStatus.setText(header)
+        textHeaderStatus.text = header
         statusDot.backgroundTintList = ColorStateList.valueOf(dotColor)
         // Iniciar/Configurar em destaque; Parar mais discreto.
         val primary = MaterialColors.getColor(buttonToggle, androidx.appcompat.R.attr.colorPrimary)

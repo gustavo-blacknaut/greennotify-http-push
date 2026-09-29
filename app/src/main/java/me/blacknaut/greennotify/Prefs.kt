@@ -10,25 +10,9 @@ object Prefs {
     private const val KEY_API_KEY = "api_key"
     const val KEY_RUNNING = "running"
     const val KEY_LAST_ERROR = "last_error"
-    private const val KEY_MODE = "mode"
 
-    const val MODE_REALTIME = "realtime"
-    const val MODE_ECONOMY = "economy"
-
-    /** Tempo real (conexão aberta) ou economia (consulta periódica, sem serviço fixo). */
-    fun getMode(ctx: Context): String = prefs(ctx).getString(KEY_MODE, MODE_REALTIME) ?: MODE_REALTIME
-
-    fun setMode(ctx: Context, mode: String) {
-        prefs(ctx).edit().putString(KEY_MODE, mode).apply()
-    }
-
-    // Intervalo das checagens do modo economia, separado por tipo de rede (minutos).
-    val INTERVAL_OPTIONS = intArrayOf(2, 5, 10, 15, 30, 60)
-    fun getWifiMinutes(ctx: Context): Int = prefs(ctx).getInt("wifi_minutes", 10)
-    fun getMobileMinutes(ctx: Context): Int = prefs(ctx).getInt("mobile_minutes", 15)
-    fun setIntervals(ctx: Context, wifi: Int, mobile: Int) {
-        prefs(ctx).edit().putInt("wifi_minutes", wifi).putInt("mobile_minutes", mobile).apply()
-    }
+    /** Acesso interno às preferências (usado por Policy e Stats). */
+    fun raw(ctx: Context) = prefs(ctx)
 
     fun getLastReminderAt(ctx: Context): Long = prefs(ctx).getLong("last_reminder", 0)
     fun setLastReminderAt(ctx: Context, at: Long) {
