@@ -8,6 +8,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import org.json.JSONObject
 
 fun isWebLink(link: String): Boolean =
@@ -70,7 +71,8 @@ object NotificationHelper {
         )
 
         val notification = NotificationCompat.Builder(ctx, CHANNEL_ALERTS)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.drawable.ic_stat_greennotify)
+            .setColor(ContextCompat.getColor(ctx, R.color.green))
             .setContentTitle(title)
             .setContentText(if (message.isNotBlank()) message else reason)
             .setStyle(NotificationCompat.BigTextStyle().bigText(bodyBuilder.toString()))
@@ -95,7 +97,8 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val summary = NotificationCompat.Builder(ctx, CHANNEL_ALERTS)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.drawable.ic_stat_greennotify)
+            .setColor(ContextCompat.getColor(ctx, R.color.green))
             .setContentTitle(ctx.resources.getQuantityString(R.plurals.summary_count, count, count))
             .setGroup(GROUP_ALERTS)
             .setGroupSummary(true)
@@ -122,7 +125,8 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val notification = NotificationCompat.Builder(ctx, CHANNEL_ALERTS)
-            .setSmallIcon(android.R.drawable.stat_notify_error)
+            .setSmallIcon(R.drawable.ic_stat_greennotify)
+            .setColor(ContextCompat.getColor(ctx, R.color.green))
             .setContentTitle(ctx.getString(R.string.service_stopped_title))
             .setContentText(reason)
             .setAutoCancel(true)

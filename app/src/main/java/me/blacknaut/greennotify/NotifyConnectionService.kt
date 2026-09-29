@@ -5,6 +5,7 @@ import android.app.Service
 import android.content.Intent
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import okhttp3.*
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okio.ByteString
@@ -80,7 +81,8 @@ class NotifyConnectionService : Service() {
 
     private fun buildForegroundNotification(status: String): Notification {
         return NotificationCompat.Builder(this, NotificationHelper.CHANNEL_SERVICE)
-            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setSmallIcon(R.drawable.ic_stat_greennotify)
+            .setColor(ContextCompat.getColor(this, R.color.green))
             .setContentTitle(getString(R.string.service_title))
             .setContentText(status)
             .setOngoing(true)
