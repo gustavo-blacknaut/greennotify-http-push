@@ -229,6 +229,21 @@ Dá pra gerenciar tudo pelo app; pela API fica assim (todas POST, com `key` e `d
 
 O `/list` aceita `category` pra filtrar.
 
+## Atualizar com 1 clique
+
+Pelo app (botão de download > Servidor > Atualizar servidor) ou pela API:
+
+```bash
+curl -X POST "http://SEU_SERVIDOR:PORTA/admin/update" \
+  -H "Content-Type: application/json" \
+  -d '{"adminKey":"SUA_ADMIN_KEY"}'
+```
+
+O servidor baixa `index.js`, `store.js` e `package.json` do release mais novo do GitHub, confere a
+sintaxe, guarda os atuais como `.bak` e sai para reiniciar. O Pterodactyl liga de novo sozinho (a
+detecção de queda vem ligada) e roda o `npm install`. Com `"check": true` ele só diz se tem versão nova.
+`GET /health` mostra a versão que está rodando. Se algo der errado, renomeie os `.bak` de volta.
+
 ## Vigia: saber quando um bot/serviço cai
 
 Um serviço que fica ligado (bot do Discord, API, worker) pode mandar um sinal de vida a cada

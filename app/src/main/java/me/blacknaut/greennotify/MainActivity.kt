@@ -84,6 +84,7 @@ class MainActivity : AppCompatActivity(), NotificationSheet.Host, ComposeSheet.H
         currentCategory = savedInstanceState?.getString(STATE_CATEGORY)
 
         findViewById<View>(R.id.buttonSettings).setOnClickListener { openSettings() }
+        findViewById<View>(R.id.buttonUpdates).setOnClickListener { startActivity(Intent(this, UpdateActivity::class.java)) }
         findViewById<View>(R.id.buttonUsage).setOnClickListener { startActivity(Intent(this, UsageActivity::class.java)) }
         buttonToggle.setOnClickListener { onToggle() }
 
@@ -161,6 +162,7 @@ class MainActivity : AppCompatActivity(), NotificationSheet.Host, ComposeSheet.H
         refreshStatus()
         load()
         PinnedSummary.refreshAsync(this)
+        checkUpdates()
         // Chegou notificação com a tela aberta: a lista atualiza sozinha (só no topo, para não pular).
         NotificationBus.listener = {
             if (!isDestroyed) {
@@ -573,6 +575,25 @@ class MainActivity : AppCompatActivity(), NotificationSheet.Host, ComposeSheet.H
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link)))
         } catch (e: Exception) {
             Toast.makeText(this, R.string.error_invalid_link, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /** No máximo a cada 6 h: se tiver versão nova do app ou do servidor, avisa com um botão. */
+    private fun checkUpdates() {
+        if (!Updater.shouldCheck(this)) return
+        Updater.markChecked(this)
+        Updater.latestRelease { rel, _ ->
+            if (rel == null || isDestroyed) return@latestRelease
+            val appOld = Updater.newer(rel.version, Updater.appVersion(this))
+            val show = { what: Int ->
+                Snackbar.make(recycler, getString(what, rel.version), Snackbar.LENGTH_INDEFINITE)
+                    .setAction(R.string.update_snack_action) { startActivity(Intent(this, UpdateActivity::class.java)) }
+                    .show()
+            }
+            if (appOld) show(R.string.update_snack_app)
+            else if (Prefs.isConfigured(this)) Updater.serverVersion(this) { v ->
+                if (!isDestroyed && (v == null || Updater.newer(rel.version, v))) show(R.string.update_snack_server)
+            }
         }
     }
 

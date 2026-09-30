@@ -180,6 +180,17 @@ tocar de novo, ou no X, volta para todas. Segurando a pasta: editar nome/imagem,
 notificação nela, apagar todas as notificações dela ou apagar a categoria (com ou sem as notificações).
 O botão **Nova** cria uma notificação pelo próprio celular.
 
+### Atualizações com 1 clique
+
+O botão de download no topo da tela inicial abre **Atualizações**:
+
+- **App:** baixa o APK do release mais novo do GitHub e abre o instalador (na primeira vez o Android
+  pede para liberar "instalar apps desconhecidos" para o GreenNotify). A cada 6 h o app confere
+  sozinho e mostra um aviso quando tem versão nova.
+- **Servidor:** com a `ADMIN_KEY`, o próprio servidor baixa `index.js`, `store.js` e `package.json`
+  do release, guarda os antigos como `.bak` e reinicia. O `.env`, o banco e o `node_modules` não
+  são tocados. No Pterodactyl, quem liga de novo é o painel (deixe a detecção de queda ligada, que é o padrão).
+
 ## 3. Integrando suas outras aplicações
 
 Em Node.js, copie [`clients/node/greennotify.js`](clients/node/greennotify.js) para o projeto — é só

@@ -137,7 +137,8 @@ function deliver(deviceId, fields) {
 
 // ---------- HTTP: tudo via POST (corpo em JSON) ----------
 
-app.get('/health', (req, res) => res.json({ ok: true }));
+const VERSION = require('./package.json').version;
+app.get('/health', (req, res) => res.json({ ok: true, version: VERSION }));
 
 const STATUSES = ['pending', 'done', 'archived'];
 // details = tocar abre o modal (padrão); link = abre o link direto; link_done = abre o link e marca como concluída.
@@ -383,6 +384,78 @@ const vigia = setInterval(() => {
   }
 }, 30 * 1000);
 
+// ---------- Atualização com 1 clique (pelo app) ----------
+// Baixa index.js, store.js e package.json do release mais novo do GitHub, confere a sintaxe, guarda os
+// atuais como .bak e reinicia. Na volta, o Pterodactyl roda "npm install" e liga a versão nova.
+// O .env, o data.sqlite e o node_modules não são tocados.
+const vm = require('vm');
+const Module = require('module');
+const UPDATE_REPO = process.env.GREENNOTIFY_REPO || 'gustavo-blacknaut/greennotify-http-push';
+const UPDATE_FILES = ['index.js', 'store.js', 'package.json'];
+
+function newerVersion(a, b) {
+  const pa = String(a).replace(/^v/, '').split('.').map(Number);
+  const pb = String(b).replace(/^v/, '').split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
+  }
+  return false;
+}
+
+async function githubText(url) {
+  const r = await fetch(url, { headers: { 'User-Agent': 'greennotify-server', Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(20000) });
+  if (!r.ok) throw new Error(`GitHub respondeu ${r.status} em ${url}`);
+  return r.text();
+}
+
+let updating = false;
+
+// POST /admin/update { adminKey, check? }  (check: true só consulta, não atualiza)
+app.post('/admin/update', registerLimiter, async (req, res) => {
+  const { adminKey, check } = req.body || {};
+  if (typeof adminKey !== 'string' || !store.safeEqual(adminKey, ADMIN_KEY)) {
+    return res.status(401).json({ error: 'adminKey inválida' });
+  }
+  if (updating) return res.status(409).json({ error: 'já tem uma atualização em andamento' });
+  try {
+    const release = JSON.parse(await githubText(`https://api.github.com/repos/${UPDATE_REPO}/releases/latest`));
+    const tag = release.tag_name;
+    const latest = String(tag).replace(/^v/, '');
+    const available = newerVersion(latest, VERSION);
+    if (check === true || !available) {
+      return res.json({ ok: true, current: VERSION, latest, updateAvailable: available });
+    }
+
+    updating = true;
+    const files = {};
+    for (const name of UPDATE_FILES) {
+      const text = await githubText(`https://raw.githubusercontent.com/${UPDATE_REPO}/${tag}/server/${name}`);
+      if (name.endsWith('.js')) {
+        // Só confere se o arquivo é JavaScript válido (não executa nada).
+        new vm.Script(Module.wrap(text), { filename: name });
+      } else {
+        const pkg = JSON.parse(text);
+        if (pkg.name !== 'greennotify-server') throw new Error('package.json baixado não é do servidor GreenNotify');
+      }
+      files[name] = text;
+    }
+    for (const [name, text] of Object.entries(files)) {
+      const target = path.join(__dirname, name);
+      fs.writeFileSync(target + '.new', text, 'utf8');
+      if (fs.existsSync(target)) fs.copyFileSync(target, target + '.bak');
+      fs.renameSync(target + '.new', target);
+    }
+    console.log(`[update] atualizado de ${VERSION} para ${latest}; reiniciando...`);
+    res.json({ ok: true, updated: true, from: VERSION, to: latest, restarting: true });
+    // Sai com código 1: o Pterodactyl entende como queda e liga de novo sozinho (já com a versão nova).
+    setTimeout(() => shutdown('update', 1), 1500);
+  } catch (e) {
+    updating = false;
+    console.error('[update] falhou:', e.message);
+    res.status(502).json({ error: 'não foi possível atualizar: ' + e.message });
+  }
+});
+
 // Confirmar entrega/leitura (também pode ser feito via WebSocket).
 // POST /ack { key, deviceId, id }
 app.post('/ack', (req, res) => {
@@ -406,16 +479,16 @@ server.listen(PORT, () => {
   console.log(`GreenNotify server rodando em http://0.0.0.0:${PORT} (HTTP puro, sem HTTPS)`);
 });
 
-function shutdown(signal) {
+function shutdown(signal, code = 0) {
   console.log(`${signal} recebido, encerrando...`);
   clearInterval(heartbeat);
   clearInterval(vigia);
   for (const ws of wss.clients) ws.close(1001, 'server shutting down');
   server.close(() => {
     store.close();
-    process.exit(0);
+    process.exit(code);
   });
-  setTimeout(() => process.exit(1), 5000).unref();
+  setTimeout(() => process.exit(code || 1), 5000).unref();
 }
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));

@@ -74,6 +74,15 @@
         </LinearLayout>
 
         <Button
+            android:id="@+id/buttonUpdates"
+            style="?attr/materialIconButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/title_updates"
+            app:icon="@drawable/ic_download"
+            app:iconTint="?attr/colorOnSurfaceVariant" />
+
+        <Button
             android:id="@+id/buttonUsage"
             style="?attr/materialIconButtonStyle"
             android:layout_width="wrap_content"
