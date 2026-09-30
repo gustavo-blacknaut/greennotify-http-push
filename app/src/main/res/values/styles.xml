@@ -53,4 +53,7 @@
     <style name="GreenNotify.Image" parent="">
         <item name="cornerSize">14dp</item>
     </style>
+    <style name="GreenNotify.Circle" parent="">
+        <item name="cornerSize">50%</item>
+    </style>
 </resources>

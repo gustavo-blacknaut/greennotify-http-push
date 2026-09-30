@@ -97,30 +97,21 @@ object NotificationHelper {
             .setOnlyAlertOnce(!alert)
             .setSilent(!alert)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-        if (since > 0) b.setUsesChronometer(true).setWhen(since).setShowWhen(true) else b.setShowWhen(false)
-
+        // Só "Conectado há DD:HH:MM" (sem contagem de pendentes). O texto é refeito a cada redesenho
+        // do aviso (a cada verificação/sinal de vida), sem acordar o celular só para isso.
+        val mins = if (since > 0) ((System.currentTimeMillis() - since) / 60000).coerceAtLeast(0) else 0
+        val clock = String.format(java.util.Locale.US, "%02d:%02d:%02d", mins / 1440, (mins / 60) % 24, mins % 60)
+        b.setShowWhen(false)
+            .setContentTitle(if (problem.isNotBlank()) problem else ctx.getString(R.string.pinned_connected, clock))
+            .setLargeIcon(logo(ctx))
         if (count > 0) {
-            val title = ctx.resources.getQuantityString(R.plurals.pinned_count, count, count)
-            // Colorida (fundo verde) o título fica na cor do sistema; senão, em destaque verde.
-            val colorized = foreground && Build.VERSION.SDK_INT < 36
-            val head = if (latest.isNotBlank()) ctx.getString(R.string.pinned_latest, latest) else problem
-            b.setContentTitle(if (colorized) title else highlight(ctx, title))
-                .setContentText(head.ifBlank { state })
-                .setStyle(NotificationCompat.BigTextStyle().bigText((listOf(head) + details).filter { it.isNotBlank() }.joinToString("\n")))
-                .setLargeIcon(logo(ctx))
-                .setPriority(NotificationCompat.PRIORITY_MAX)
-                .setCategory(NotificationCompat.CATEGORY_REMINDER)
-            // Android 16+: pede para virar "Live Update" (Samsung: tela de bloqueio/Now Bar).
-            // Antes disso, notificação colorida de serviço fica no topo como a do Spotify.
+            // Com pendentes o aviso mantém prioridade máxima (topo), mas sem texto extra.
+            b.setPriority(NotificationCompat.PRIORITY_MAX).setCategory(NotificationCompat.CATEGORY_REMINDER)
+            // Android 16+: pede para virar "Live Update"; antes, notificação colorida de serviço fica no topo.
             if (Build.VERSION.SDK_INT >= 36) b.extras.putBoolean("android.requestPromotedOngoing", true)
             else if (foreground) b.setColorized(true)
         } else {
-            val line = problem.ifBlank { listOf(state, next).filter { it.isNotBlank() }.joinToString(" · ") }
-            b.setContentTitle(ctx.getString(R.string.pinned_none))
-                .setContentText(line)
-                .setStyle(NotificationCompat.BigTextStyle().bigText(details.joinToString("\n")))
-                .setPriority(NotificationCompat.PRIORITY_LOW)
-                .setCategory(NotificationCompat.CATEGORY_STATUS)
+            b.setPriority(NotificationCompat.PRIORITY_LOW).setCategory(NotificationCompat.CATEGORY_STATUS)
         }
         if (foreground) b.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
         return b.build()

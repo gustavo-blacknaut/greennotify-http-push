@@ -168,4 +168,5 @@
     <string name="sheet_sent_at">Enviada em %1$s</string>
     <string name="snack_new">Chegou notificação nova</string>
     <string name="snack_show">Ver</string>
+    <string name="pinned_connected">Conectado há %1$s</string>
 </resources>

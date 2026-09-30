@@ -40,7 +40,7 @@ object PinnedSummary {
                 nm.cancel(NotificationHelper.PINNED_ID)
                 nm.notify(NotifyConnectionService.NOTIF_ID, NotificationHelper.pinned(ctx, foreground = true, alert = alert))
             }
-            Prefs.isRunning(ctx) && Prefs.getPendingCount(ctx) > 0 ->
+            Prefs.isRunning(ctx) ->
                 nm.notify(NotificationHelper.PINNED_ID, NotificationHelper.pinned(ctx, foreground = false, alert = alert))
             else -> nm.cancel(NotificationHelper.PINNED_ID)
         }

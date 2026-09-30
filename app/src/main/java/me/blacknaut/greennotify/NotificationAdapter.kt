@@ -37,7 +37,7 @@ class NotificationAdapter(
         val secondary: MaterialButton = view.findViewById(R.id.buttonArchive)
         val info: MaterialButton = view.findViewById(R.id.buttonInfo)
         val readMore: TextView = view.findViewById(R.id.textReadMore)
-        val thumb: ImageView = view.findViewById(R.id.imageThumb)
+        val avatarImage: ImageView = view.findViewById(R.id.imageAvatar)
     }
 
     private val expanded = HashSet<String>()
@@ -80,16 +80,17 @@ class NotificationAdapter(
             notifyItemChanged(holder.bindingAdapterPosition)
         }
 
-        holder.thumb.setImageDrawable(null)
+        // Com imagem, ela ocupa o círculo no lugar da letra.
+        holder.avatarImage.setImageDrawable(null)
+        holder.avatarImage.tag = item.id
         if (isWebLink(item.image)) {
-            holder.thumb.visibility = View.VISIBLE
-            holder.thumb.tag = item.id
-            ImageLoader.load(item.image, 720) { bmp ->
-                if (holder.thumb.tag != item.id) return@load
-                if (bmp != null) holder.thumb.setImageBitmap(bmp) else holder.thumb.visibility = View.GONE
+            holder.avatarImage.visibility = View.VISIBLE
+            ImageLoader.load(item.image, 160) { bmp ->
+                if (holder.avatarImage.tag != item.id) return@load
+                if (bmp != null) holder.avatarImage.setImageBitmap(bmp) else holder.avatarImage.visibility = View.GONE
             }
         } else {
-            holder.thumb.visibility = View.GONE
+            holder.avatarImage.visibility = View.GONE
         }
         holder.itemView.setOnClickListener { onOpen(item) }
         holder.info.setOnClickListener { onOpen(item) }
