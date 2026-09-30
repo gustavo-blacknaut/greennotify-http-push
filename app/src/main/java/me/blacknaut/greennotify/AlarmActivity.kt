@@ -1,0 +1,125 @@
+package me.blacknaut.greennotify
+
+import android.app.KeyguardManager
+import android.app.NotificationManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.media.AudioManager
+import android.os.Build
+import android.os.Bundle
+import android.view.WindowManager
+import android.widget.Button
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
+import org.json.JSONObject
+
+/**
+ * Alerta máximo (priority "alarm", ex.: bot parou de responder): tela cheia vermelha, mesmo com o
+ * celular bloqueado. O som é o do canal de alarme, repetindo sem parar até você tocar em "Parar alarme".
+ */
+class AlarmActivity : AppCompatActivity() {
+
+    private var json: JSONObject? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
+        }
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        setContentView(R.layout.activity_alarm)
+        bind(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        bind(intent)
+    }
+
+    private fun bind(intent: Intent) {
+        json = intent.getStringExtra(EXTRA_JSON)?.let { runCatching { JSONObject(it) }.getOrNull() }
+        val item = json?.let { NotificationItem.fromJson(it) }
+        findViewById<TextView>(R.id.alarmTitle).text = item?.title?.ifBlank { null } ?: getString(R.string.alarm_default_title)
+        findViewById<TextView>(R.id.alarmMessage).text = listOf(item?.message, item?.reason?.let { if (it.isBlank()) null else getString(R.string.reason_format, it) })
+            .filter { !it.isNullOrBlank() }.joinToString("\n")
+        findViewById<TextView>(R.id.alarmOrigin).text = listOf(item?.category, item?.app).filter { !it.isNullOrBlank() }.distinct().joinToString(" · ")
+
+        findViewById<Button>(R.id.alarmStop).setOnClickListener {
+            Alarm.stop(this, item?.id)
+            finish()
+        }
+        findViewById<Button>(R.id.alarmDetails).setOnClickListener {
+            Alarm.stop(this, item?.id)
+            startActivity(Intent(this, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .apply { json?.let { putExtra(MainActivity.EXTRA_NOTIF, it.toString()) } })
+            // Com o celular bloqueado, pede o desbloqueio para abrir o app.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                getSystemService(KeyguardManager::class.java)?.requestDismissKeyguard(this, null)
+            }
+            finish()
+        }
+    }
+
+    companion object {
+        const val EXTRA_JSON = "json"
+    }
+}
+
+/** Botão "Parar alarme" direto na notificação (sem abrir tela). */
+class AlarmStopReceiver : BroadcastReceiver() {
+    override fun onReceive(ctx: Context, intent: Intent) {
+        Alarm.stop(ctx, intent.getStringExtra(EXTRA_ID))
+    }
+
+    companion object {
+        const val EXTRA_ID = "id"
+    }
+}
+
+/**
+ * Volume do alarme: "alto, mas não no máximo". Enquanto toca, o volume de alarme do celular sobe para
+ * pelo menos 80% (se já estiver acima, fica como está). Ao parar, volta ao que era.
+ */
+object Alarm {
+    private const val TARGET = 0.8f
+
+    fun raiseVolume(ctx: Context) {
+        val am = ctx.getSystemService(AudioManager::class.java) ?: return
+        val max = am.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+        val current = am.getStreamVolume(AudioManager.STREAM_ALARM)
+        val target = (max * TARGET).toInt().coerceAtLeast(1)
+        val prefs = Prefs.raw(ctx)
+        // Guarda o volume original só na primeira vez (dois alarmes seguidos não perdem o valor certo).
+        if (!prefs.contains(KEY_SAVED)) prefs.edit().putInt(KEY_SAVED, current).apply()
+        if (current < target) runCatching { am.setStreamVolume(AudioManager.STREAM_ALARM, target, 0) }
+    }
+
+    fun restoreVolume(ctx: Context) {
+        val prefs = Prefs.raw(ctx)
+        if (!prefs.contains(KEY_SAVED)) return
+        val saved = prefs.getInt(KEY_SAVED, -1)
+        prefs.edit().remove(KEY_SAVED).apply()
+        val am = ctx.getSystemService(AudioManager::class.java) ?: return
+        if (saved >= 0) runCatching { am.setStreamVolume(AudioManager.STREAM_ALARM, saved, 0) }
+    }
+
+    /** Para o som (a notificação insistente sai) e devolve o volume. A notificação continua pendente no app. */
+    fun stop(ctx: Context, id: String?) {
+        if (id != null) NotificationHelper.cancel(ctx, id)
+        else {
+            val nm = ctx.getSystemService(NotificationManager::class.java)
+            nm.activeNotifications.filter { it.notification.channelId == NotificationHelper.CHANNEL_ALARM }
+                .forEach { nm.cancel(it.tag, it.id) }
+        }
+        restoreVolume(ctx)
+    }
+
+    private const val KEY_SAVED = "alarm_saved_volume"
+}

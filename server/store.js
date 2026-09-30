@@ -25,6 +25,9 @@ db.exec(`
     topic TEXT,
     image TEXT,
     category TEXT,
+    tapAction TEXT,
+    priority TEXT,
+    count INTEGER NOT NULL DEFAULT 1,
     status TEXT NOT NULL DEFAULT 'pending',
     delivered INTEGER NOT NULL DEFAULT 0,
     createdAt INTEGER NOT NULL
@@ -61,6 +64,9 @@ const columns = db.prepare('PRAGMA table_info(notifications)').all().map(c => c.
 if (!columns.includes('topic')) db.exec("ALTER TABLE notifications ADD COLUMN topic TEXT DEFAULT ''");
 if (!columns.includes('image')) db.exec("ALTER TABLE notifications ADD COLUMN image TEXT DEFAULT ''");
 if (!columns.includes('category')) db.exec("ALTER TABLE notifications ADD COLUMN category TEXT DEFAULT ''");
+if (!columns.includes('tapAction')) db.exec("ALTER TABLE notifications ADD COLUMN tapAction TEXT DEFAULT ''");
+if (!columns.includes('priority')) db.exec("ALTER TABLE notifications ADD COLUMN priority TEXT DEFAULT ''");
+if (!columns.includes('count')) db.exec('ALTER TABLE notifications ADD COLUMN count INTEGER NOT NULL DEFAULT 1');
 
 // Cada dispositivo tem no máximo 4 categorias (viram as "pastas" da tela inicial do app).
 const MAX_CATEGORIES = 4;
@@ -145,11 +151,57 @@ const SELECT_WITH_CATEGORY = `
   SELECT n.*, c.image AS categoryImage FROM notifications n
   LEFT JOIN categories c ON c.deviceId = n.deviceId AND c.name = n.category COLLATE NOCASE`;
 
-function addNotification(deviceId, { title, message, reason, app, link, topic, image, category }) {
+// "{n}" no título vira o total acumulado (ex.: "💬 #ticket-joao ({n})" -> "💬 #ticket-joao (3)").
+function fillCount(title, n) {
+  return String(title || '').replace(/\{n\}/g, String(n));
+}
+
+// Junta o texto novo ao antigo, guardando só o final se passar do limite (as mensagens mais recentes).
+function appendTail(oldText, newText, max = 4000) {
+  const joined = oldText ? (newText ? oldText + '\n' + newText : oldText) : (newText || '');
+  if (joined.length <= max) return joined;
+  const tail = joined.slice(joined.length - max);
+  const cut = tail.indexOf('\n');
+  return '…' + (cut >= 0 && cut < 200 ? tail.slice(cut) : tail);
+}
+
+// unique: no máximo UMA notificação pendente por topic. Se já existe, ela é atualizada (texto somado,
+// contador aumenta, volta ao topo e é reenviada ao celular com o mesmo id, substituindo a anterior).
+function addNotification(deviceId, fields) {
+  const { title, message, reason, app, link, topic, image, category, tapAction, priority, count, unique } = fields;
+  const add = Number.isInteger(count) && count > 0 ? count : 1;
+  if (unique && topic) {
+    const existing = db.prepare(
+      "SELECT * FROM notifications WHERE deviceId = ? AND topic = ? COLLATE NOCASE AND status = 'pending' ORDER BY createdAt DESC LIMIT 1"
+    ).get(deviceId, topic);
+    if (existing) {
+      const total = (existing.count || 1) + add;
+      const merged = {
+        ...existing,
+        title: fillCount(title || 'Notificação', total),
+        message: appendTail(existing.message, message || ''),
+        reason: reason || existing.reason,
+        app: app || existing.app,
+        link: link || existing.link,
+        image: image || existing.image,
+        category: category ? resolveCategory(deviceId, category, image) : existing.category,
+        tapAction: tapAction || existing.tapAction || '',
+        priority: priority || existing.priority || '',
+        count: total,
+        delivered: 0,
+        createdAt: Date.now(),
+      };
+      db.prepare(`UPDATE notifications SET title = @title, message = @message, reason = @reason, app = @app, link = @link,
+        image = @image, category = @category, tapAction = @tapAction, priority = @priority, count = @count,
+        delivered = 0, createdAt = @createdAt WHERE id = @id`).run(merged);
+      const cat = merged.category ? getCategoryByName(deviceId, merged.category) : null;
+      return rowToNotification({ ...merged, categoryImage: cat ? cat.image : '' });
+    }
+  }
   const notif = {
     id: genId(),
     deviceId,
-    title: title || 'Notificação',
+    title: fillCount(title || 'Notificação', add),
     message: message || '',
     reason: reason || '',
     app: app || 'desconhecido',
@@ -157,13 +209,16 @@ function addNotification(deviceId, { title, message, reason, app, link, topic, i
     topic: topic || '',
     image: image || '',
     category: resolveCategory(deviceId, category, image),
+    tapAction: tapAction || '',
+    priority: priority || '',
+    count: add,
     status: 'pending',
     delivered: 0,
     createdAt: Date.now()
   };
   db.prepare(`
-    INSERT INTO notifications (id, deviceId, title, message, reason, app, link, topic, image, category, status, delivered, createdAt)
-    VALUES (@id, @deviceId, @title, @message, @reason, @app, @link, @topic, @image, @category, @status, @delivered, @createdAt)
+    INSERT INTO notifications (id, deviceId, title, message, reason, app, link, topic, image, category, tapAction, priority, count, status, delivered, createdAt)
+    VALUES (@id, @deviceId, @title, @message, @reason, @app, @link, @topic, @image, @category, @tapAction, @priority, @count, @status, @delivered, @createdAt)
   `).run(notif);
   const cat = notif.category ? getCategoryByName(deviceId, notif.category) : null;
   return rowToNotification({ ...notif, categoryImage: cat ? cat.image : '' });

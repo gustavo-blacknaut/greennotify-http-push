@@ -56,7 +56,10 @@ function postar(corpo, caminho = '/notify') {
 const LIMITES = { title: 200, message: 4000, reason: 1000, app: 100, link: 2000, topic: 100, image: 2000, category: 40 };
 
 /**
- * Envia uma notificação. Campos: title, message, reason, link, topic, image, category, app.
+ * Envia uma notificação. Campos de texto: title, message, reason, link, topic, image, category, app.
+ * Opcionais: tapAction ('details' | 'link' | 'link_done'), priority ('normal' | 'alarm'),
+ * unique (true = uma notificação pendente por topic; as novas entram nela) e count (quantos itens
+ * esta chamada soma; "{n}" no title vira o total).
  * Retorna uma Promise<boolean> (true = o servidor aceitou). Pode ser chamada sem await.
  */
 export async function notificar(campos) {
@@ -69,6 +72,8 @@ export async function notificar(campos) {
     };
     for (const [campo, valor] of Object.entries(campos || {})) {
         if (valor === undefined || valor === null || valor === '') continue;
+        // Números e true/false vão como estão (count, unique); o resto vira texto.
+        if (typeof valor === 'number' || typeof valor === 'boolean') { corpo[campo] = valor; continue; }
         let texto = String(valor);
         const max = LIMITES[campo];
         if (max && texto.length > max) texto = texto.slice(0, max - 1) + '…';

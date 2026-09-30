@@ -36,4 +36,5 @@
     <color name="avatar_5">#FFD84315</color>
     <color name="avatar_6">#FF5D4037</color>
     <color name="status_off">#FF9E9E9E</color>
+    <color name="alarm_red">#C62828</color>
 </resources>

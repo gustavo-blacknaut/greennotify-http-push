@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- Android 16: permite pedir destaque do aviso fixo como Live Update (tela de bloqueio/Now Bar). -->
     <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+    <!-- Alerta máximo: tela cheia vermelha mesmo com o celular bloqueado. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
     <!-- Android 11+: permite checar se existe navegador para abrir o link da notificação. -->
     <queries>
@@ -45,6 +47,29 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Toque que abre o link direto (ex.: canal do Discord) e marca como resolvida. Sem tela. -->
+        <activity
+            android:name=".TapActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <activity
+            android:name=".AlarmActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:taskAffinity=""
+            android:turnScreenOn="true"
+            tools:targetApi="o_mr1" />
+
+        <receiver
+            android:name=".AlarmStopReceiver"
+            android:exported="false" />
 
         <activity
             android:name=".UsageActivity"

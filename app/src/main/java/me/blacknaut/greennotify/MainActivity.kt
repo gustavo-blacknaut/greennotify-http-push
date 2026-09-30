@@ -102,6 +102,13 @@ class MainActivity : AppCompatActivity(), NotificationSheet.Host, ComposeSheet.H
             mutableListOf(),
             onOpenLink = { openLink(it) },
             onOpen = { NotificationSheet.show(this, it) },
+            onTap = { item ->
+                if (item.opensLink) {
+                    // Mesmo comportamento da notificação: abre o canal e, se for link_done, resolve.
+                    TapActivity.handle(this, item)
+                    if (item.tapAction == "link_done" && currentStatus == "pending") { adapter.removeItem(item.id); updateEmpty() }
+                } else NotificationSheet.show(this, item)
+            },
             onPrimary = { item -> changeStatus(item, if (item.status == "done") "pending" else "done") },
             onSecondary = { item -> changeStatus(item, if (item.status == "archived") "pending" else "archived") }
         )
@@ -129,6 +136,7 @@ class MainActivity : AppCompatActivity(), NotificationSheet.Host, ComposeSheet.H
         swipeRefresh.setOnChildScrollUpCallback { _, _ -> recycler.canScrollVertically(-1) || appBarOffset != 0 }
 
         requestNotificationPermissionIfNeeded()
+        askFullScreenIfNeeded()
         currentCategory?.let { chipCategory.text = it; chipCategory.visibility = View.VISIBLE }
         handleIntent(intent)
     }
@@ -580,6 +588,27 @@ class MainActivity : AppCompatActivity(), NotificationSheet.Host, ComposeSheet.H
     }
 
     private fun openSettings() = startActivity(Intent(this, SettingsActivity::class.java))
+
+    /**
+     * Android 14+: tela cheia do alarme precisa de permissão manual. Pergunta uma vez; se recusar,
+     * o alarme ainda toca e aparece como pop-up, só não acende a tela vermelha.
+     */
+    private fun askFullScreenIfNeeded() {
+        if (Build.VERSION.SDK_INT < 34) return
+        val nm = getSystemService(android.app.NotificationManager::class.java)
+        if (nm.canUseFullScreenIntent() || Prefs.raw(this).getBoolean("asked_fullscreen", false)) return
+        Prefs.raw(this).edit().putBoolean("asked_fullscreen", true).apply()
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.fullscreen_title)
+            .setMessage(R.string.fullscreen_message)
+            .setNegativeButton(R.string.fullscreen_later, null)
+            .setPositiveButton(R.string.fullscreen_allow) { _, _ ->
+                runCatching {
+                    startActivity(Intent(android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:$packageName")))
+                }
+            }
+            .show()
+    }
 
     private fun requestNotificationPermissionIfNeeded() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&

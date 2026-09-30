@@ -17,6 +17,7 @@ object NotificationHelper {
     const val CHANNEL_STATUS = "greennotify_status"
     const val CHANNEL_PINNED = "greennotify_pinned"
     const val CHANNEL_ALERTS = "greennotify_alerts"
+    const val CHANNEL_ALARM = "greennotify_alarm"
     const val PINNED_ID = 1002
 
     // Notificações recebidas usam o id do servidor como tag: (tag, ALERT_ID) é único, sem colisão de hashCode.
@@ -53,7 +54,25 @@ object NotificationHelper {
             CHANNEL_ALERTS, ctx.getString(R.string.channel_alerts_name), NotificationManager.IMPORTANCE_HIGH
         ).apply { description = ctx.getString(R.string.channel_alerts_desc) }
 
-        nm.createNotificationChannels(listOf(status, pinned, alerts))
+        // Alerta máximo: som de ALARME (toca mesmo no silencioso, no volume de alarme), vibração longa.
+        val alarm = NotificationChannel(
+            CHANNEL_ALARM, ctx.getString(R.string.channel_alarm_name), NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = ctx.getString(R.string.channel_alarm_desc)
+            setSound(
+                android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
+                    ?: android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI,
+                android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            )
+            enableVibration(true)
+            vibrationPattern = longArrayOf(0, 800, 400, 800, 400, 800)
+            lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+        }
+
+        nm.createNotificationChannels(listOf(status, pinned, alerts, alarm))
         // Canal antigo (importância mínima, texto "Conectado a ...") não é mais usado.
         nm.deleteNotificationChannel("greennotify_service")
     }
@@ -149,6 +168,15 @@ object NotificationHelper {
         val subject = subjectOf(ctx, json)
         val nm = ctx.getSystemService(NotificationManager::class.java)
 
+        if (json.optString("priority") == "alarm") {
+            // Alerta máximo: fora do grupo (para o pop-up/tela cheia não ficar escondido), sem trocar
+            // a imagem depois (atualizar poderia cortar o som que fica repetindo).
+            Alarm.raiseVolume(ctx)
+            nm.notify(id, ALERT_ID, buildAlarm(ctx, json, id))
+            NotificationBus.newNotification()
+            return
+        }
+
         val notification = buildIncoming(ctx, json, id, subject, null)
         nm.notify(id, ALERT_ID, notification)
         postGroupSummary(ctx, nm, subject, id to notification)
@@ -186,8 +214,15 @@ object NotificationHelper {
             body.append(ctx.getString(R.string.origin_format, app))
         }
 
-        // Tocar abre o modal desta notificação (o link fica dentro dele); o texto completo está lá.
-        val open = PendingIntent.getActivity(
+        // Tocar abre o modal desta notificação; com tapAction link/link_done, abre o link direto
+        // (ex.: canal do Discord) e, no link_done, já marca como resolvida.
+        val open = if (NotificationItem.fromJson(json).opensLink) PendingIntent.getActivity(
+            ctx, id.hashCode(),
+            Intent(ctx, TapActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_HISTORY)
+                .putExtra(TapActivity.EXTRA_JSON, json.toString()),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        ) else PendingIntent.getActivity(
             ctx, id.hashCode(),
             Intent(ctx, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -216,6 +251,53 @@ object NotificationHelper {
         if (picture != null) b.setOnlyAlertOnce(true)
         json.optString("category").takeIf { it.isNotBlank() }?.let { b.setSubText(it) }
         return b.build()
+    }
+
+    /**
+     * Alerta máximo: canal de alarme, som repetindo sem parar (FLAG_INSISTENT) até tocar em "Parar alarme",
+     * tela cheia vermelha (se o Android permitir) e não sai arrastando para o lado.
+     */
+    private fun buildAlarm(ctx: Context, json: JSONObject, id: String): android.app.Notification {
+        val title = json.optString("title").ifBlank { ctx.getString(R.string.alarm_default_title) }
+        val message = json.optString("message", "")
+        val reason = json.optString("reason", "")
+        val screen = PendingIntent.getActivity(
+            ctx, ("alarm" + id).hashCode(),
+            Intent(ctx, AlarmActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra(AlarmActivity.EXTRA_JSON, json.toString()),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val stop = PendingIntent.getBroadcast(
+            ctx, ("stop" + id).hashCode(),
+            Intent(ctx, AlarmStopReceiver::class.java).putExtra(AlarmStopReceiver.EXTRA_ID, id),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val body = listOf(message, if (reason.isNotBlank()) ctx.getString(R.string.reason_format, reason) else "")
+            .filter { it.isNotBlank() }.joinToString("\n")
+        val n = NotificationCompat.Builder(ctx, CHANNEL_ALARM)
+            .setSmallIcon(R.drawable.ic_stat_greennotify)
+            .setColor(ContextCompat.getColor(ctx, R.color.alarm_red))
+            .setColorized(true)
+            .setContentTitle(title)
+            .setContentText(message.ifBlank { reason })
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setLargeIcon(logo(ctx))
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .setWhen(json.optLong("createdAt").takeIf { it > 0 } ?: System.currentTimeMillis())
+            .setShowWhen(true)
+            .setContentIntent(screen)
+            .setFullScreenIntent(screen, true)
+            .addAction(R.drawable.ic_stop, ctx.getString(R.string.alarm_stop), stop)
+            .apply { json.optString("category").takeIf { it.isNotBlank() }?.let { setSubText(it) } }
+            .build()
+        // Repete o som até alguém parar.
+        n.flags = n.flags or android.app.Notification.FLAG_INSISTENT
+        return n
     }
 
     /** Recorta a imagem em círculo (centro), para o ícone grande da notificação. */

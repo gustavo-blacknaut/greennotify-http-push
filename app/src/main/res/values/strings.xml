@@ -216,4 +216,14 @@
     <string name="folders_count">%1$d/%2$d</string>
     <string name="pinned_countdown">Economia no %1$s · próxima verificação em</string>
     <string name="pinned_realtime_short">Tempo real no %1$s · chega na hora</string>
+    <string name="channel_alarm_name">Alerta máximo (alarme)</string>
+    <string name="channel_alarm_desc">Toca alarme alto e repetido até você parar (ex.: bot fora do ar)</string>
+    <string name="alarm_label">ALERTA</string>
+    <string name="alarm_default_title">Alerta máximo</string>
+    <string name="alarm_stop">Parar alarme</string>
+    <string name="alarm_details">Ver no app</string>
+    <string name="fullscreen_title">Permitir alarme em tela cheia?</string>
+    <string name="fullscreen_message">Nos alertas máximos (ex.: bot fora do ar) o GreenNotify toca um alarme e mostra uma tela vermelha, mesmo com o celular bloqueado. O Android pede que você libere isso manualmente.</string>
+    <string name="fullscreen_allow">Permitir</string>
+    <string name="fullscreen_later">Agora não</string>
 </resources>

@@ -140,6 +140,10 @@ function deliver(deviceId, fields) {
 app.get('/health', (req, res) => res.json({ ok: true }));
 
 const STATUSES = ['pending', 'done', 'archived'];
+// details = tocar abre o modal (padrão); link = abre o link direto; link_done = abre o link e marca como concluída.
+const TAP_ACTIONS = ['', 'details', 'link', 'link_done'];
+// alarm = alerta máximo: toca alarme alto e insistente até você parar, com tela cheia.
+const PRIORITIES = ['', 'normal', 'alarm'];
 const MAX_LENGTHS = { title: 200, message: 4000, reason: 1000, app: 100, link: 2000, name: 100, topic: 100, image: 2000, category: 40 };
 
 function validateFields(body) {
@@ -151,6 +155,10 @@ function validateFields(body) {
   }
   if (body.link && !/^https?:\/\//i.test(body.link)) return 'link deve começar com http:// ou https://';
   if (body.image && !/^https?:\/\//i.test(body.image)) return 'image deve começar com http:// ou https://';
+  if (body.tapAction !== undefined && !TAP_ACTIONS.includes(body.tapAction)) return `tapAction deve ser um de: ${TAP_ACTIONS.filter(Boolean).join(', ')}`;
+  if (body.priority !== undefined && !PRIORITIES.includes(body.priority)) return `priority deve ser um de: ${PRIORITIES.filter(Boolean).join(', ')}`;
+  if (body.count !== undefined && (!Number.isInteger(body.count) || body.count < 1 || body.count > 1000)) return 'count deve ser inteiro entre 1 e 1000';
+  if (body.unique !== undefined && typeof body.unique !== 'boolean') return 'unique deve ser true ou false';
   if (body.status !== undefined && !STATUSES.includes(body.status)) {
     return `status deve ser um de: ${STATUSES.join(', ')}`;
   }
@@ -207,12 +215,13 @@ app.post('/register', registerLimiter, (req, res) => {
 app.use(['/notify', '/list', '/complete', '/move', '/delete', '/ack', '/categories', '/heartbeat'], failedAuthLimiter);
 
 // Enviar notificação (usado pelas suas outras aplicações).
-// POST /notify { key, deviceId, title, message, reason, app, link, topic, image, category }
+// POST /notify { key, deviceId, title, message, reason, app, link, topic, image, category,
+//               tapAction?, priority?, unique?, count? }
 app.post('/notify', (req, res) => {
   const deviceId = auth(req, res);
   if (!deviceId) return;
-  const { title, message, reason, app: appName, link, topic, image, category } = req.body;
-  const { notif, delivered } = deliver(deviceId, { title, message, reason, app: appName, link, topic, image, category });
+  const { title, message, reason, app: appName, link, topic, image, category, tapAction, priority, unique, count } = req.body;
+  const { notif, delivered } = deliver(deviceId, { title, message, reason, app: appName, link, topic, image, category, tapAction, priority, unique, count });
   res.json({ ok: true, delivered, notification: notif });
 });
 
@@ -325,9 +334,9 @@ function hora(ms) {
   return new Date(ms).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: process.env.TZ || 'America/Sao_Paulo' });
 }
 
-function avisoVigia(hb, title, message, reason) {
+function avisoVigia(hb, title, message, reason, priority = '') {
   deliver(hb.deviceId, {
-    title, message, reason, app: hb.name, topic: `Status: ${hb.name}`, category: hb.category || '', image: hb.image || '',
+    title, message, reason, app: hb.name, topic: `Status: ${hb.name}`, category: hb.category || '', image: hb.image || '', priority,
   });
 }
 
@@ -370,7 +379,7 @@ const vigia = setInterval(() => {
     store.saveHeartbeat({ ...hb, down: 1, downSince: hb.lastSeen });
     avisoVigia(hb, `🔴 ${hb.name} parou de responder`,
       `Último sinal às ${hora(hb.lastSeen)} (há ${duracao(now - hb.lastSeen)}). Pode ter caído, travado ou a hospedagem desligou.`,
-      'Sem sinal de vida');
+      'Sem sinal de vida', 'alarm');
   }
 }, 30 * 1000);
 

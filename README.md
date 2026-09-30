@@ -66,6 +66,9 @@ curl -X POST "http://SEU_SERVIDOR:8080/notify" \
 - `topic` — assunto opcional: notificações com o mesmo `topic` ficam empilhadas juntas no
   celular (ex: `"Ticket #123"`). Sem ele, o app agrupa pelo `app`.
 - `image` — link (http/https) de uma imagem opcional: aparece no círculo da notificação e do cartão, e grande no modal.
+- `tapAction` — `link_done` faz o toque abrir o link (ex.: canal do Discord) e já marcar como resolvida.
+- `priority` — `alarm` toca o alarme do celular, alto e repetindo, com tela vermelha, até você parar.
+- `unique` + `topic` — uma notificação por assunto: as novas entram na pendente (use `{n}` no título para o total).
 - `category` — categoria (pasta) no app. Até 4 por celular; se não existir e houver vaga, é criada na hora.
 - `link` — link opcional (ticket, canal do Discord, pedido, etc). Ao tocar na notificação
   ou no item da lista, o link abre direto no celular.

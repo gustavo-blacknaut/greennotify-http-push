@@ -86,6 +86,10 @@ Corpo:
 | `link`     | string | não | URL completa (com `https://` ou `http://`). Se enviado, tocar na notificação ou no item da lista abre esse link direto |
 | `topic`    | string | não | Assunto. Notificações com o mesmo `topic` ficam empilhadas numa entrada só no celular (use um identificador estável: `"Ticket #123"`, `"Pedido #55"`, `"Backup diário"`). Sem `topic`, o app agrupa pelo `app` |
 | `image`    | string | não | URL http(s) de uma imagem. Aparece no círculo da notificação e do cartão (no lugar da inicial) e grande no modal de detalhes. Prefira imagens leves (até ~1 MB). Um bot costuma mandar a própria logo |
+| `tapAction` | string | não | O que o toque faz: `details` (padrão, abre o modal), `link` (abre o `link` direto) ou `link_done` (abre o `link` e já marca como concluída — ideal para "mensagem nova no canal X") |
+| `priority` | string | não | `alarm` = alerta máximo: toca o **alarme** do celular (alto, repetindo) até a pessoa parar, com tela cheia vermelha mesmo bloqueado. Use SÓ para coisas graves (serviço fora do ar, pagamento falhando). Padrão: notificação normal |
+| `unique`   | boolean | não | `true` = no máximo UMA notificação pendente por `topic`: se já existir, esta entra nela (texto somado, sobe pro topo, o celular substitui a anterior). Ex.: uma notificação por canal/conversa, não importa quantas mensagens |
+| `count`    | inteiro | não | Quantos itens esta chamada soma (padrão 1). `{n}` no `title` vira o total acumulado: `"💬 #suporte ({n})"` → `"💬 #suporte (5)"` |
 | `category` | string | não | Categoria (pasta) no app, até 40 caracteres. Cada celular tem até **4** categorias; se a categoria não existir e houver vaga, é criada na hora (com a `image` desta notificação como imagem da pasta). Sem vaga, a notificação fica sem categoria. Maiúsculas não importam. Pergunte ao usuário o nome da categoria de cada projeto |
 
 Resposta (200):

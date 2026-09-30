@@ -19,6 +19,8 @@ class NotificationAdapter(
     private val onOpenLink: (String) -> Unit,
     /** Toque no cartão ou no botão de informações: abre o modal com os detalhes. */
     private val onOpen: (NotificationItem) -> Unit,
+    /** Toque no cartão: igual ao toque na notificação (modal, ou abre o link direto). */
+    private val onTap: (NotificationItem) -> Unit,
     /** Concluir (ou reabrir, se já concluída). */
     private val onPrimary: (NotificationItem) -> Unit,
     /** Arquivar (ou restaurar, se já arquivada). */
@@ -91,7 +93,7 @@ class NotificationAdapter(
         } else {
             holder.avatarImage.visibility = View.GONE
         }
-        holder.itemView.setOnClickListener { onOpen(item) }
+        holder.itemView.setOnClickListener { onTap(item) }
         holder.info.setOnClickListener { onOpen(item) }
         TooltipCompat.setTooltipText(holder.info, ctx.getString(R.string.action_details))
         holder.reason.text = ctx.getString(R.string.reason_format, item.reason)

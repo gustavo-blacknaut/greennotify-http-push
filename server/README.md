@@ -166,6 +166,9 @@ Os campos que dá pra mandar são esses:
 | `link`     | não         | um link (ticket, canal do Discord, pedido, etc) clicável no app |
 | `topic`    | não         | o assunto: notificações com o mesmo `topic` ficam empilhadas juntas no celular (ex: `"Ticket #123"`). Sem ele, agrupa pelo `app` |
 | `image`    | não         | link (http/https) de uma imagem: aparece na notificação e no modal de detalhes |
+| `tapAction` | não        | `link_done`: tocar abre o link e marca como concluída; `link`: só abre; padrão abre o modal |
+| `priority` | não         | `alarm`: toca o alarme do celular, alto e repetindo, até parar (ex.: serviço fora do ar) |
+| `unique`   | não         | `true`: uma notificação pendente por `topic`; as novas entram nela (`{n}` no título = total) |
 | `category` | não         | categoria (pasta) no app. Até 4 por celular; se não existir e tiver vaga, é criada na hora |
 
 Se o celular estiver com o app aberto/serviço rodando, a notificação chega na
@@ -238,7 +241,7 @@ curl -X POST "http://SEU_SERVIDOR:PORTA/heartbeat" \
   -d '{"key":"SUA_API_KEY","deviceId":"meu-celular","name":"Meu Bot","interval":60}'
 ```
 
-- Sem sinal por 2 intervalos + 30 s: "🔴 Meu Bot parou de responder". Quando volta: "✅ Meu Bot voltou".
+- Sem sinal por 2 intervalos + 30 s: "🔴 Meu Bot parou de responder" — como **alarme** (toca alto até você parar). Quando volta: "✅ Meu Bot voltou".
 - `"stopping": true` ao desligar de propósito: "⏹️ Meu Bot foi desligado" na hora.
 - `"remove": true`: para de vigiar. Ligar normalmente não gera notificação.
 - Se o próprio servidor GreenNotify ficar fora, ao voltar ele dá um prazo novo a todos (não acusa queda falsa).
