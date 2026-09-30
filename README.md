@@ -82,6 +82,7 @@ WebSocket. Se estiver offline, fica guardada e é entregue assim que ele reconec
 - `/move` — move para outro status (ex: arquivar)
 - `/delete` — remove uma notificação (`id: "all"` remove todas)
 - `/ack` — marca como entregue/lida
+- `/heartbeat` — vigia: avisa no celular se um bot/serviço parar de dar sinal
 - `/categories/list`, `/categories/create`, `/categories/update`, `/categories/delete`, `/categories/clear` — as pastas (até 4)
 - `GET /health` — healthcheck (esse único continua GET, é só um teste rápido)
 

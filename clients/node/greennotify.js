@@ -10,6 +10,7 @@
 // Uso:
 //   import { notificar, agrupar } from './greennotify.js';
 //   notificar({ title: 'Pedido pago', message: 'R$ 49,90', topic: 'Pedido #12', link: 'https://...' });
+//   vigiar('Meu Bot');   // avisa no celular se o processo desligar, travar ou cair
 //
 // Nunca lança erro nem trava quem chama: se o servidor estiver fora, tenta mais 2 vezes e desiste.
 // Sem GREENNOTIFY_URL/DEVICE/KEY no ambiente, não faz nada.
@@ -23,11 +24,11 @@ function configurado() {
     return !!(process.env.GREENNOTIFY_URL && process.env.GREENNOTIFY_DEVICE && process.env.GREENNOTIFY_KEY);
 }
 
-function postar(corpo) {
+function postar(corpo, caminho = '/notify') {
     return new Promise((resolve) => {
         let url;
         try {
-            url = new URL('/notify', process.env.GREENNOTIFY_URL);
+            url = new URL(caminho, process.env.GREENNOTIFY_URL);
         } catch (_) {
             return resolve({ ok: false, final: true, erro: 'GREENNOTIFY_URL inválida' });
         }
@@ -110,4 +111,41 @@ export function agrupar(chave, item, ms, enviar) {
         grupos.delete(chave);
         Promise.resolve(enviar(novo.itens)).catch((e) => console.error('[greennotify] erro ao agrupar:', e));
     }, ms);
+}
+
+/**
+ * Vigia: manda um sinal de vida a cada [intervalo] segundos. Se o processo parar de mandar
+ * (caiu, travou, a hospedagem desligou), o servidor avisa o celular: "🔴 [nome] parou de responder".
+ * Desligar pelo painel (SIGINT/SIGTERM) avisa na hora: "⏹️ [nome] foi desligado".
+ * Ligar normalmente NÃO gera notificação; só a volta depois de uma queda ("✅ [nome] voltou").
+ */
+export function vigiar(nome, { intervalo = 60, image, category } = {}) {
+    if (!configurado()) return;
+    const corpo = (extra) => ({
+        key: process.env.GREENNOTIFY_KEY,
+        deviceId: process.env.GREENNOTIFY_DEVICE,
+        name: nome,
+        interval: intervalo,
+        category: category || process.env.GREENNOTIFY_CATEGORY || undefined,
+        image: typeof image === 'function' ? image() : image,
+        ...extra,
+    });
+    const sinal = () => postar(corpo(), '/heartbeat').then((r) => {
+        if (!r.ok && r.final) console.error('[greennotify] vigia recusado:', r.erro);
+    });
+    sinal();
+    const timer = setInterval(sinal, intervalo * 1000);
+    timer.unref?.(); // o vigia sozinho não segura o processo aberto
+
+    let saindo = false;
+    const desligar = (codigo) => {
+        if (saindo) return;
+        saindo = true;
+        clearInterval(timer);
+        // Espera no máximo 3 s pelo aviso e sai de qualquer jeito.
+        const fim = setTimeout(() => process.exit(codigo), 3000);
+        postar(corpo({ stopping: true }), '/heartbeat').finally(() => { clearTimeout(fim); process.exit(codigo); });
+    };
+    process.once('SIGINT', () => desligar(0));
+    process.once('SIGTERM', () => desligar(0));
 }

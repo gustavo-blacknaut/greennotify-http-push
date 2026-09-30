@@ -226,6 +226,25 @@ Dá pra gerenciar tudo pelo app; pela API fica assim (todas POST, com `key` e `d
 
 O `/list` aceita `category` pra filtrar.
 
+## Vigia: saber quando um bot/serviço cai
+
+Um serviço que fica ligado (bot do Discord, API, worker) pode mandar um sinal de vida a cada
+minuto. Se o sinal parar, o servidor avisa o celular sozinho — mesmo que o serviço tenha morrido
+sem conseguir mandar nada.
+
+```bash
+curl -X POST "http://SEU_SERVIDOR:PORTA/heartbeat" \
+  -H "Content-Type: application/json" \
+  -d '{"key":"SUA_API_KEY","deviceId":"meu-celular","name":"Meu Bot","interval":60}'
+```
+
+- Sem sinal por 2 intervalos + 30 s: "🔴 Meu Bot parou de responder". Quando volta: "✅ Meu Bot voltou".
+- `"stopping": true` ao desligar de propósito: "⏹️ Meu Bot foi desligado" na hora.
+- `"remove": true`: para de vigiar. Ligar normalmente não gera notificação.
+- Se o próprio servidor GreenNotify ficar fora, ao voltar ele dá um prazo novo a todos (não acusa queda falsa).
+
+Em Node, `vigiar('Meu Bot')` do [cliente pronto](../clients/node/greennotify.js) cuida disso.
+
 ## Conexões que caem sem avisar
 
 Celular que troca de Wi‑Fi pra 4G, fica sem bateria ou reinicia costuma sumir sem

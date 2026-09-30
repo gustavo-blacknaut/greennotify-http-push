@@ -101,9 +101,19 @@ object NotificationHelper {
         // do aviso (a cada verificação/sinal de vida), sem acordar o celular só para isso.
         val mins = if (since > 0) ((System.currentTimeMillis() - since) / 60000).coerceAtLeast(0) else 0
         val clock = String.format(java.util.Locale.US, "%02d:%02d:%02d", mins / 1440, (mins / 60) % 24, mins % 60)
-        b.setShowWhen(false)
-            .setContentTitle(if (problem.isNotBlank()) problem else ctx.getString(R.string.pinned_connected, clock))
+        b.setContentTitle(if (problem.isNotBlank()) problem else ctx.getString(R.string.pinned_connected, clock))
             .setLargeIcon(logo(ctx))
+        val now = System.currentTimeMillis()
+        when {
+            // Modo economia: contagem regressiva até a próxima verificação (4:59 … 0:30 … 0:05, 0:04 …).
+            // Quem desenha e atualiza a cada segundo é o próprio Android: o app não acorda para isso.
+            p.kind == Policy.POLLING && p.net != NetworkInfo.Net.NONE && nextAt > now ->
+                b.setUsesChronometer(true).setChronometerCountDown(true).setWhen(nextAt).setShowWhen(true)
+                    .setContentText(ctx.getString(R.string.pinned_countdown, netName))
+            p.kind == Policy.REALTIME && p.net != NetworkInfo.Net.NONE ->
+                b.setShowWhen(false).setContentText(ctx.getString(R.string.pinned_realtime_short, netName))
+            else -> b.setShowWhen(false).setContentText(state)
+        }
         if (count > 0) {
             // Com pendentes o aviso mantém prioridade máxima (topo), mas sem texto extra.
             b.setPriority(NotificationCompat.PRIORITY_MAX).setCategory(NotificationCompat.CATEGORY_REMINDER)

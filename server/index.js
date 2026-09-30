@@ -128,6 +128,13 @@ const heartbeat = setInterval(() => {
   }
 }, Math.min(60 * 1000, HEARTBEAT_MS / 2));
 
+// Grava a notificação e manda na hora para o celular, se ele estiver conectado.
+function deliver(deviceId, fields) {
+  const notif = store.addNotification(deviceId, fields);
+  const delivered = sendToDevice(deviceId, { type: 'notification', ...notif });
+  return { notif, delivered };
+}
+
 // ---------- HTTP: tudo via POST (corpo em JSON) ----------
 
 app.get('/health', (req, res) => res.json({ ok: true }));
@@ -197,7 +204,7 @@ app.post('/register', registerLimiter, (req, res) => {
   res.json({ deviceId, apiKey: device.apiKey, name: device.name });
 });
 
-app.use(['/notify', '/list', '/complete', '/move', '/delete', '/ack', '/categories'], failedAuthLimiter);
+app.use(['/notify', '/list', '/complete', '/move', '/delete', '/ack', '/categories', '/heartbeat'], failedAuthLimiter);
 
 // Enviar notificação (usado pelas suas outras aplicações).
 // POST /notify { key, deviceId, title, message, reason, app, link, topic, image, category }
@@ -205,8 +212,7 @@ app.post('/notify', (req, res) => {
   const deviceId = auth(req, res);
   if (!deviceId) return;
   const { title, message, reason, app: appName, link, topic, image, category } = req.body;
-  const notif = store.addNotification(deviceId, { title, message, reason, app: appName, link, topic, image, category });
-  const delivered = sendToDevice(deviceId, { type: 'notification', ...notif });
+  const { notif, delivered } = deliver(deviceId, { title, message, reason, app: appName, link, topic, image, category });
   res.json({ ok: true, delivered, notification: notif });
 });
 
@@ -306,6 +312,68 @@ app.post('/categories/clear', (req, res) => {
   categoryResult(res, store.clearCategory(deviceId, id));
 });
 
+// ---------- Vigia: avisa no celular quando um serviço (bot, API...) para de dar sinal ----------
+
+function duracao(ms) {
+  const min = Math.max(1, Math.round(ms / 60000));
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  return h < 24 ? `${h} h ${min % 60} min` : `${Math.floor(h / 24)} d ${h % 24} h`;
+}
+
+function hora(ms) {
+  return new Date(ms).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: process.env.TZ || 'America/Sao_Paulo' });
+}
+
+function avisoVigia(hb, title, message, reason) {
+  deliver(hb.deviceId, {
+    title, message, reason, app: hb.name, topic: `Status: ${hb.name}`, category: hb.category || '', image: hb.image || '',
+  });
+}
+
+// POST /heartbeat { key, deviceId, name, interval? (s, 20–3600, padrão 60), stopping?, category?, image?, remove? }
+// O serviço chama a cada `interval` segundos. Sem sinal por 2 intervalos + 30 s: "parou de responder".
+// stopping: true = desligou de propósito (avisa na hora). remove: true = para de vigiar esse nome.
+app.post('/heartbeat', (req, res) => {
+  const deviceId = auth(req, res);
+  if (!deviceId) return;
+  const { name, interval = 60, stopping, category, image, remove } = req.body;
+  if (typeof name !== 'string' || !name.trim() || name.length > 100) return res.status(400).json({ error: 'name é obrigatório (até 100 caracteres)' });
+  if (!Number.isInteger(interval) || interval < 20 || interval > 3600) return res.status(400).json({ error: 'interval deve ser inteiro entre 20 e 3600 (segundos)' });
+  const nome = name.trim();
+  if (remove === true) return res.json({ ok: store.deleteHeartbeat(deviceId, nome) });
+
+  const now = Date.now();
+  const antes = store.getHeartbeat(deviceId, nome);
+  const hb = {
+    deviceId, name: nome, intervalMs: interval * 1000, lastSeen: now, down: 0, downSince: null,
+    category: category || antes?.category || '', image: image || antes?.image || '',
+  };
+
+  if (stopping === true) {
+    hb.down = 1; hb.downSince = now;
+    store.saveHeartbeat(hb);
+    if (!antes?.down) avisoVigia(hb, `⏹️ ${nome} foi desligado`, `Desligou às ${hora(now)}.`, 'Parado pelo painel ou reiniciando');
+    return res.json({ ok: true, status: 'stopped' });
+  }
+
+  store.saveHeartbeat(hb);
+  // Só avisa a volta se antes tinha avisado a queda (ligar normalmente não gera notificação).
+  if (antes?.down) avisoVigia(hb, `✅ ${nome} voltou`, `Ficou fora por ${duracao(now - (antes.downSince || antes.lastSeen))}.`, 'Voltou a dar sinal');
+  res.json({ ok: true, status: 'up' });
+});
+
+store.graceHeartbeats(Date.now());
+const vigia = setInterval(() => {
+  const now = Date.now();
+  for (const hb of store.overdueHeartbeats(now)) {
+    store.saveHeartbeat({ ...hb, down: 1, downSince: hb.lastSeen });
+    avisoVigia(hb, `🔴 ${hb.name} parou de responder`,
+      `Último sinal às ${hora(hb.lastSeen)} (há ${duracao(now - hb.lastSeen)}). Pode ter caído, travado ou a hospedagem desligou.`,
+      'Sem sinal de vida');
+  }
+}, 30 * 1000);
+
 // Confirmar entrega/leitura (também pode ser feito via WebSocket).
 // POST /ack { key, deviceId, id }
 app.post('/ack', (req, res) => {
@@ -332,6 +400,7 @@ server.listen(PORT, () => {
 function shutdown(signal) {
   console.log(`${signal} recebido, encerrando...`);
   clearInterval(heartbeat);
+  clearInterval(vigia);
   for (const ws of wss.clients) ws.close(1001, 'server shutting down');
   server.close(() => {
     store.close();

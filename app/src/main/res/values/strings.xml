@@ -214,4 +214,6 @@
     <string name="compose_error_empty">Escreva um título ou uma mensagem</string>
     <string name="compose_origin">Celular</string>
     <string name="folders_count">%1$d/%2$d</string>
+    <string name="pinned_countdown">Economia no %1$s · próxima verificação em</string>
+    <string name="pinned_realtime_short">Tempo real no %1$s · chega na hora</string>
 </resources>

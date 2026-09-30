@@ -168,6 +168,16 @@ POST {SERVIDOR}/categories/clear   { key, deviceId, id }                      (a
 O `/list` também aceita `category` para filtrar, e cada notificação listada vem com
 `category` e `categoryImage` (imagem da pasta).
 
+**Vigia (avisar quando um serviço cai)** — para bots, APIs e workers que ficam ligados:
+```
+POST {SERVIDOR}/heartbeat { key, deviceId, name, interval?, category?, image?, stopping?, remove? }
+```
+- Chame a cada `interval` segundos (20–3600, padrão 60). Sem sinal por 2 intervalos + 30 s, o
+  celular recebe "🔴 {name} parou de responder". Quando volta: "✅ {name} voltou" (só depois de uma queda).
+- `stopping: true` no desligamento (SIGINT/SIGTERM) avisa na hora: "⏹️ {name} foi desligado".
+- `remove: true` para de vigiar esse nome. Ligar normalmente **não** gera notificação.
+- Em Node, o cliente pronto faz tudo: `vigiar('Meu Bot', { intervalo: 60, image })`.
+
 **Healthcheck** (único endpoint que é GET, sem autenticação):
 ```
 GET {SERVIDOR}/health  →  { "ok": true }

@@ -39,6 +39,19 @@ db.exec(`
   );
   CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_device_name ON categories(deviceId, name COLLATE NOCASE);
 
+  -- Vigia (dead man's switch): cada serviço manda um sinal periódico; se parar, o celular é avisado.
+  CREATE TABLE IF NOT EXISTS heartbeats (
+    deviceId TEXT NOT NULL,
+    name TEXT NOT NULL,
+    intervalMs INTEGER NOT NULL,
+    lastSeen INTEGER NOT NULL,
+    down INTEGER NOT NULL DEFAULT 0,
+    downSince INTEGER,
+    category TEXT,
+    image TEXT,
+    PRIMARY KEY (deviceId, name)
+  );
+
   DROP INDEX IF EXISTS idx_notifications_device;
   CREATE INDEX IF NOT EXISTS idx_notifications_device_status_created
     ON notifications(deviceId, status, createdAt);
@@ -278,7 +291,41 @@ function markDelivered(deviceId, id) {
   db.prepare('UPDATE notifications SET delivered = 1 WHERE deviceId = ? AND id = ?').run(deviceId, id);
 }
 
+// ---------- Vigia ----------
+
+function getHeartbeat(deviceId, name) {
+  return db.prepare('SELECT * FROM heartbeats WHERE deviceId = ? AND name = ?').get(deviceId, name);
+}
+
+function saveHeartbeat(hb) {
+  db.prepare(`
+    INSERT INTO heartbeats (deviceId, name, intervalMs, lastSeen, down, downSince, category, image)
+    VALUES (@deviceId, @name, @intervalMs, @lastSeen, @down, @downSince, @category, @image)
+    ON CONFLICT(deviceId, name) DO UPDATE SET intervalMs = excluded.intervalMs, lastSeen = excluded.lastSeen,
+      down = excluded.down, downSince = excluded.downSince, category = excluded.category, image = excluded.image
+  `).run(hb);
+}
+
+// Quem passou do prazo (2 intervalos + 30 s de folga) e ainda não foi dado como fora.
+function overdueHeartbeats(now) {
+  return db.prepare('SELECT * FROM heartbeats WHERE down = 0 AND lastSeen + intervalMs * 2 + 30000 < ?').all(now);
+}
+
+// Servidor acabou de ligar: dá um prazo novo a todos (o tempo que ele ficou fora não conta como queda).
+function graceHeartbeats(now) {
+  db.prepare('UPDATE heartbeats SET lastSeen = ? WHERE down = 0').run(now);
+}
+
+function deleteHeartbeat(deviceId, name) {
+  return db.prepare('DELETE FROM heartbeats WHERE deviceId = ? AND name = ?').run(deviceId, name).changes > 0;
+}
+
 module.exports = {
+  getHeartbeat,
+  saveHeartbeat,
+  overdueHeartbeats,
+  deleteHeartbeat,
+  graceHeartbeats,
   close: () => db.close(),
   safeEqual,
   registerDevice,
