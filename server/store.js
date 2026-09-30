@@ -24,10 +24,20 @@ db.exec(`
     link TEXT,
     topic TEXT,
     image TEXT,
+    category TEXT,
     status TEXT NOT NULL DEFAULT 'pending',
     delivered INTEGER NOT NULL DEFAULT 0,
     createdAt INTEGER NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS categories (
+    id TEXT PRIMARY KEY,
+    deviceId TEXT NOT NULL,
+    name TEXT NOT NULL,
+    image TEXT,
+    createdAt INTEGER NOT NULL
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_device_name ON categories(deviceId, name COLLATE NOCASE);
 
   DROP INDEX IF EXISTS idx_notifications_device;
   CREATE INDEX IF NOT EXISTS idx_notifications_device_status_created
@@ -37,6 +47,10 @@ db.exec(`
 const columns = db.prepare('PRAGMA table_info(notifications)').all().map(c => c.name);
 if (!columns.includes('topic')) db.exec("ALTER TABLE notifications ADD COLUMN topic TEXT DEFAULT ''");
 if (!columns.includes('image')) db.exec("ALTER TABLE notifications ADD COLUMN image TEXT DEFAULT ''");
+if (!columns.includes('category')) db.exec("ALTER TABLE notifications ADD COLUMN category TEXT DEFAULT ''");
+
+// Cada dispositivo tem no máximo 4 categorias (viram as "pastas" da tela inicial do app).
+const MAX_CATEGORIES = 4;
 
 function migrateLegacyJson() {
   const legacyFile = path.join(__dirname, 'data.json');
@@ -111,10 +125,14 @@ function isValidKey(deviceId, key) {
 
 function rowToNotification(row) {
   if (!row) return row;
-  return { ...row, delivered: !!row.delivered };
+  return { ...row, categoryImage: row.categoryImage || '', delivered: !!row.delivered };
 }
 
-function addNotification(deviceId, { title, message, reason, app, link, topic, image }) {
+const SELECT_WITH_CATEGORY = `
+  SELECT n.*, c.image AS categoryImage FROM notifications n
+  LEFT JOIN categories c ON c.deviceId = n.deviceId AND c.name = n.category COLLATE NOCASE`;
+
+function addNotification(deviceId, { title, message, reason, app, link, topic, image, category }) {
   const notif = {
     id: genId(),
     deviceId,
@@ -125,29 +143,114 @@ function addNotification(deviceId, { title, message, reason, app, link, topic, i
     link: link || '',
     topic: topic || '',
     image: image || '',
+    category: resolveCategory(deviceId, category, image),
     status: 'pending',
     delivered: 0,
     createdAt: Date.now()
   };
   db.prepare(`
-    INSERT INTO notifications (id, deviceId, title, message, reason, app, link, topic, image, status, delivered, createdAt)
-    VALUES (@id, @deviceId, @title, @message, @reason, @app, @link, @topic, @image, @status, @delivered, @createdAt)
+    INSERT INTO notifications (id, deviceId, title, message, reason, app, link, topic, image, category, status, delivered, createdAt)
+    VALUES (@id, @deviceId, @title, @message, @reason, @app, @link, @topic, @image, @category, @status, @delivered, @createdAt)
   `).run(notif);
-  return rowToNotification(notif);
+  const cat = notif.category ? getCategoryByName(deviceId, notif.category) : null;
+  return rowToNotification({ ...notif, categoryImage: cat ? cat.image : '' });
 }
 
-function listNotifications(deviceId, status, limit = 100, offset = 0) {
-  const rows = status
-    ? db.prepare('SELECT * FROM notifications WHERE deviceId = ? AND status = ? ORDER BY createdAt DESC LIMIT ? OFFSET ?')
-        .all(deviceId, status, limit, offset)
-    : db.prepare('SELECT * FROM notifications WHERE deviceId = ? ORDER BY createdAt DESC LIMIT ? OFFSET ?')
-        .all(deviceId, limit, offset);
-  return rows.map(rowToNotification);
+function listNotifications(deviceId, status, limit = 100, offset = 0, category) {
+  let sql = SELECT_WITH_CATEGORY + ' WHERE n.deviceId = ?';
+  const args = [deviceId];
+  if (status) { sql += ' AND n.status = ?'; args.push(status); }
+  if (category) { sql += ' AND n.category = ? COLLATE NOCASE'; args.push(category); }
+  sql += ' ORDER BY n.createdAt DESC LIMIT ? OFFSET ?';
+  args.push(limit, offset);
+  return db.prepare(sql).all(...args).map(rowToNotification);
+}
+
+// ---------- Categorias ----------
+
+function getCategoryByName(deviceId, name) {
+  return db.prepare('SELECT * FROM categories WHERE deviceId = ? AND name = ? COLLATE NOCASE').get(deviceId, name);
+}
+
+function countCategories(deviceId) {
+  return db.prepare('SELECT COUNT(*) AS n FROM categories WHERE deviceId = ?').get(deviceId).n;
+}
+
+// Nome enviado pelo app/bot -> nome oficial da categoria. Se ela ainda não existe e há vaga,
+// é criada na hora (com a imagem da notificação); sem vaga, a notificação fica sem categoria.
+function resolveCategory(deviceId, name, image) {
+  name = (name || '').trim();
+  if (!name) return '';
+  const existing = getCategoryByName(deviceId, name);
+  if (existing) return existing.name;
+  if (countCategories(deviceId) >= MAX_CATEGORIES) return '';
+  return createCategory(deviceId, { name, image }).category.name;
+}
+
+function listCategories(deviceId) {
+  return db.prepare(`
+    SELECT c.*,
+      (SELECT COUNT(*) FROM notifications n WHERE n.deviceId = c.deviceId AND n.category = c.name COLLATE NOCASE AND n.status = 'pending') AS pending,
+      (SELECT COUNT(*) FROM notifications n WHERE n.deviceId = c.deviceId AND n.category = c.name COLLATE NOCASE) AS total
+    FROM categories c WHERE c.deviceId = ? ORDER BY c.createdAt ASC
+  `).all(deviceId);
+}
+
+function createCategory(deviceId, { name, image }) {
+  name = (name || '').trim();
+  if (!name) return { error: 'name é obrigatório' };
+  if (getCategoryByName(deviceId, name)) return { error: 'já existe uma categoria com esse nome' };
+  if (countCategories(deviceId) >= MAX_CATEGORIES) return { error: `limite de ${MAX_CATEGORIES} categorias atingido` };
+  const category = { id: genId(), deviceId, name, image: image || '', createdAt: Date.now() };
+  db.prepare('INSERT INTO categories (id, deviceId, name, image, createdAt) VALUES (@id, @deviceId, @name, @image, @createdAt)').run(category);
+  return { category };
+}
+
+// Renomear leva junto as notificações que já estavam na categoria.
+function updateCategory(deviceId, id, { name, image }) {
+  const current = db.prepare('SELECT * FROM categories WHERE deviceId = ? AND id = ?').get(deviceId, id);
+  if (!current) return { error: 'categoria não encontrada' };
+  const newName = name === undefined ? current.name : String(name).trim();
+  if (!newName) return { error: 'name não pode ficar vazio' };
+  const clash = getCategoryByName(deviceId, newName);
+  if (clash && clash.id !== id) return { error: 'já existe uma categoria com esse nome' };
+  const newImage = image === undefined ? current.image : image;
+  db.transaction(() => {
+    db.prepare('UPDATE categories SET name = ?, image = ? WHERE id = ?').run(newName, newImage, id);
+    if (newName !== current.name) {
+      db.prepare('UPDATE notifications SET category = ? WHERE deviceId = ? AND category = ? COLLATE NOCASE').run(newName, deviceId, current.name);
+    }
+  })();
+  return { category: { ...current, name: newName, image: newImage } };
+}
+
+// Apaga a categoria. Com deleteNotifications, apaga junto as notificações dela; senão elas ficam sem categoria.
+function deleteCategory(deviceId, id, deleteNotifications) {
+  const current = db.prepare('SELECT * FROM categories WHERE deviceId = ? AND id = ?').get(deviceId, id);
+  if (!current) return { error: 'categoria não encontrada' };
+  let removed = 0;
+  db.transaction(() => {
+    if (deleteNotifications) {
+      removed = db.prepare('DELETE FROM notifications WHERE deviceId = ? AND category = ? COLLATE NOCASE').run(deviceId, current.name).changes;
+    } else {
+      db.prepare("UPDATE notifications SET category = '' WHERE deviceId = ? AND category = ? COLLATE NOCASE").run(deviceId, current.name);
+    }
+    db.prepare('DELETE FROM categories WHERE id = ?').run(id);
+  })();
+  return { ok: true, removed };
+}
+
+// Apaga todas as notificações de uma categoria (a categoria continua existindo).
+function clearCategory(deviceId, id) {
+  const current = db.prepare('SELECT * FROM categories WHERE deviceId = ? AND id = ?').get(deviceId, id);
+  if (!current) return { error: 'categoria não encontrada' };
+  const removed = db.prepare('DELETE FROM notifications WHERE deviceId = ? AND category = ? COLLATE NOCASE').run(deviceId, current.name).changes;
+  return { ok: true, removed };
 }
 
 function listUndelivered(deviceId) {
   return db.prepare(
-    "SELECT * FROM notifications WHERE deviceId = ? AND status = 'pending' AND delivered = 0 ORDER BY createdAt ASC"
+    SELECT_WITH_CATEGORY + " WHERE n.deviceId = ? AND n.status = 'pending' AND n.delivered = 0 ORDER BY n.createdAt ASC"
   ).all(deviceId).map(rowToNotification);
 }
 
@@ -187,5 +290,11 @@ module.exports = {
   getNotification,
   setStatus,
   deleteNotification,
-  markDelivered
+  markDelivered,
+  listCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  clearCategory,
+  MAX_CATEGORIES
 };

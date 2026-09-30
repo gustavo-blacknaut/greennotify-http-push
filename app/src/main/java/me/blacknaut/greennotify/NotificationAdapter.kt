@@ -51,15 +51,14 @@ class NotificationAdapter(
         val subject = item.topic.ifBlank { item.app }.ifBlank { item.title }
 
         holder.avatar.text = subject.firstOrNull { it.isLetterOrDigit() }?.uppercase() ?: "G"
-        holder.avatar.backgroundTintList =
-            ColorStateList.valueOf(ContextCompat.getColor(ctx, AVATAR_COLORS[abs(subject.hashCode()) % AVATAR_COLORS.size]))
+        holder.avatar.backgroundTintList = ColorStateList.valueOf(avatarColor(ctx, subject))
 
         holder.title.text = item.title.ifBlank { ctx.getString(R.string.default_notification_title) }
         holder.time.text = if (item.createdAt > 0) DateUtils.getRelativeTimeSpanString(
             item.createdAt, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_ABBREV_RELATIVE
         ) else ""
 
-        val meta = listOf(item.topic, item.app).filter { it.isNotBlank() }.distinct().joinToString(" · ")
+        val meta = listOf(item.category, item.topic, item.app).filter { it.isNotBlank() }.distinct().joinToString(" · ")
         holder.meta.text = meta
         holder.meta.visibility = if (meta.isBlank()) View.GONE else View.VISIBLE
 
@@ -83,9 +82,9 @@ class NotificationAdapter(
         // Com imagem, ela ocupa o círculo no lugar da letra.
         holder.avatarImage.setImageDrawable(null)
         holder.avatarImage.tag = item.id
-        if (isWebLink(item.image)) {
+        if (isWebLink(item.displayImage)) {
             holder.avatarImage.visibility = View.VISIBLE
-            ImageLoader.load(item.image, 160) { bmp ->
+            ImageLoader.load(item.displayImage, 160) { bmp ->
                 if (holder.avatarImage.tag != item.id) return@load
                 if (bmp != null) holder.avatarImage.setImageBitmap(bmp) else holder.avatarImage.visibility = View.GONE
             }
@@ -163,6 +162,10 @@ class NotificationAdapter(
 
     companion object {
         private const val COLLAPSED_LINES = 4
+
+        /** Cor do círculo com a inicial (a mesma para o mesmo assunto, no cartão e na pasta). */
+        fun avatarColor(ctx: android.content.Context, subject: String): Int =
+            ContextCompat.getColor(ctx, AVATAR_COLORS[abs(subject.hashCode()) % AVATAR_COLORS.size])
         private val AVATAR_COLORS = intArrayOf(
             R.color.avatar_1, R.color.avatar_2, R.color.avatar_3,
             R.color.avatar_4, R.color.avatar_5, R.color.avatar_6

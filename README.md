@@ -65,7 +65,8 @@ curl -X POST "http://SEU_SERVIDOR:8080/notify" \
 - `app` — nome de quem está enviando (aparece como "Origem")
 - `topic` — assunto opcional: notificações com o mesmo `topic` ficam empilhadas juntas no
   celular (ex: `"Ticket #123"`). Sem ele, o app agrupa pelo `app`.
-- `image` — link (http/https) de uma imagem opcional: aparece grande na notificação e no modal de detalhes.
+- `image` — link (http/https) de uma imagem opcional: aparece no círculo da notificação e do cartão, e grande no modal.
+- `category` — categoria (pasta) no app. Até 4 por celular; se não existir e houver vaga, é criada na hora.
 - `link` — link opcional (ticket, canal do Discord, pedido, etc). Ao tocar na notificação
   ou no item da lista, o link abre direto no celular.
 
@@ -81,6 +82,7 @@ WebSocket. Se estiver offline, fica guardada e é entregue assim que ele reconec
 - `/move` — move para outro status (ex: arquivar)
 - `/delete` — remove uma notificação (`id: "all"` remove todas)
 - `/ack` — marca como entregue/lida
+- `/categories/list`, `/categories/create`, `/categories/update`, `/categories/delete`, `/categories/clear` — as pastas (até 4)
 - `GET /health` — healthcheck (esse único continua GET, é só um teste rápido)
 
 Detalhes e exemplos de cada um em [`server/README.md`](server/README.md).
@@ -166,7 +168,18 @@ se ainda houver pendentes, ele toca de novo — dá para desligar em Configuraç
 O tempo real volta sozinho depois de reiniciar o celular e depois de instalar uma
 atualização do app.
 
+### Categorias (pastas)
+
+Na tela inicial ficam até 4 pastas com imagem e nome, com o número de pendentes em cada uma.
+Tocar numa pasta mostra só as notificações dela (o filtro fica no topo mesmo rolando a lista);
+tocar de novo, ou no X, volta para todas. Segurando a pasta: editar nome/imagem, criar uma
+notificação nela, apagar todas as notificações dela ou apagar a categoria (com ou sem as notificações).
+O botão **Nova** cria uma notificação pelo próprio celular.
+
 ## 3. Integrando suas outras aplicações
+
+Em Node.js, copie [`clients/node/greennotify.js`](clients/node/greennotify.js) para o projeto — é só
+configurar o `.env` e chamar `notificar({...})`.
 
 Qualquer aplicação (script, backend, IoT, cron job) só precisa fazer um `POST` com JSON,
 sem precisar expor um endpoint de webhook — funciona de qualquer linguagem (Python

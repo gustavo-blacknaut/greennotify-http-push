@@ -70,7 +70,8 @@ Corpo:
   "app": "Nome da sua aplicação",
   "link": "https://opcional.com/algum-lugar",
   "topic": "Assunto opcional para agrupar",
-  "image": "https://opcional.com/imagem.jpg"
+  "image": "https://opcional.com/imagem.jpg",
+  "category": "NomeDaCategoria"
 }
 ```
 
@@ -84,7 +85,8 @@ Corpo:
 | `app`      | string | não | aparece como "Origem" — normalmente o nome da aplicação/serviço que está chamando |
 | `link`     | string | não | URL completa (com `https://` ou `http://`). Se enviado, tocar na notificação ou no item da lista abre esse link direto |
 | `topic`    | string | não | Assunto. Notificações com o mesmo `topic` ficam empilhadas numa entrada só no celular (use um identificador estável: `"Ticket #123"`, `"Pedido #55"`, `"Backup diário"`). Sem `topic`, o app agrupa pelo `app` |
-| `image`    | string | não | URL http(s) de uma imagem. Aparece grande na notificação (Android) e no modal de detalhes ao tocar. Prefira imagens leves (até ~1 MB) |
+| `image`    | string | não | URL http(s) de uma imagem. Aparece no círculo da notificação e do cartão (no lugar da inicial) e grande no modal de detalhes. Prefira imagens leves (até ~1 MB). Um bot costuma mandar a própria logo |
+| `category` | string | não | Categoria (pasta) no app, até 40 caracteres. Cada celular tem até **4** categorias; se a categoria não existir e houver vaga, é criada na hora (com a `image` desta notificação como imagem da pasta). Sem vaga, a notificação fica sem categoria. Maiúsculas não importam. Pergunte ao usuário o nome da categoria de cada projeto |
 
 Resposta (200):
 
@@ -155,6 +157,17 @@ POST {SERVIDOR}/delete
 { "key": "...", "deviceId": "...", "id": "ad38053d704e4588" }
 ```
 
+**Categorias** (até 4 por celular; aparecem como pastas na tela inicial do app — o usuário normalmente gerencia pelo próprio app):
+```
+POST {SERVIDOR}/categories/list    { key, deviceId }                          → { categories: [{ id, name, image, pending, total }], max: 4 }
+POST {SERVIDOR}/categories/create  { key, deviceId, name, image? }
+POST {SERVIDOR}/categories/update  { key, deviceId, id, name?, image? }        (renomear leva junto as notificações)
+POST {SERVIDOR}/categories/delete  { key, deviceId, id, deleteNotifications? } (sem apagar, elas ficam sem categoria)
+POST {SERVIDOR}/categories/clear   { key, deviceId, id }                      (apaga as notificações, mantém a categoria)
+```
+O `/list` também aceita `category` para filtrar, e cada notificação listada vem com
+`category` e `categoryImage` (imagem da pasta).
+
 **Healthcheck** (único endpoint que é GET, sem autenticação):
 ```
 GET {SERVIDOR}/health  →  { "ok": true }
@@ -169,6 +182,23 @@ disparado, etc). Não é preciso reter estado nem tratar resposta além de logar
 falha — a aplicação do usuário não deve quebrar se o GreenNotify estiver fora do
 ar, então trate a chamada como best-effort (não deixe uma falha de notificação
 derrubar o fluxo principal).
+
+**Projetos Node.js: use o cliente pronto** em [`clients/node/greennotify.js`](clients/node/greennotify.js).
+Copie o arquivo para o projeto (ES module, sem dependências, Node 14+) e configure no `.env`:
+`GREENNOTIFY_URL`, `GREENNOTIFY_DEVICE`, `GREENNOTIFY_KEY` e, opcionais, `GREENNOTIFY_CATEGORY`
+e `GREENNOTIFY_APP`. Ele já corta campos grandes, descarta link/imagem que não seja http(s),
+tenta de novo se o servidor cair e nunca lança erro. Tem também `agrupar(chave, item, ms, enviar)`
+para juntar eventos seguidos (ex.: várias mensagens no mesmo ticket) numa notificação só:
+
+```js
+import { notificar, agrupar } from './greennotify.js';
+notificar({ title: 'Pedido pago', message: 'R$ 49,90', topic: 'Pedido #12', image: urlDaLogo });
+agrupar('ticket:' + id, { autor, texto }, 20000, (itens) =>
+  notificar({ title: `${itens.length} mensagens em #${canal}`, message: itens.map(i => `${i.autor}: ${i.texto}`).join('\n'), topic: `Ticket #${canal}` }));
+```
+
+Avise no ponto do evento (na hora que acontece), nunca num resumo periódico: quem define
+o atraso até o celular é o modo do app (tempo real = na hora).
 
 Exemplo mínimo em cada stack comum:
 

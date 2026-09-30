@@ -133,7 +133,7 @@ const heartbeat = setInterval(() => {
 app.get('/health', (req, res) => res.json({ ok: true }));
 
 const STATUSES = ['pending', 'done', 'archived'];
-const MAX_LENGTHS = { title: 200, message: 4000, reason: 1000, app: 100, link: 2000, name: 100, topic: 100, image: 2000 };
+const MAX_LENGTHS = { title: 200, message: 4000, reason: 1000, app: 100, link: 2000, name: 100, topic: 100, image: 2000, category: 40 };
 
 function validateFields(body) {
   for (const [field, max] of Object.entries(MAX_LENGTHS)) {
@@ -197,29 +197,29 @@ app.post('/register', registerLimiter, (req, res) => {
   res.json({ deviceId, apiKey: device.apiKey, name: device.name });
 });
 
-app.use(['/notify', '/list', '/complete', '/move', '/delete', '/ack'], failedAuthLimiter);
+app.use(['/notify', '/list', '/complete', '/move', '/delete', '/ack', '/categories'], failedAuthLimiter);
 
 // Enviar notificação (usado pelas suas outras aplicações).
-// POST /notify { key, deviceId, title, message, reason, app, link, topic, image }
+// POST /notify { key, deviceId, title, message, reason, app, link, topic, image, category }
 app.post('/notify', (req, res) => {
   const deviceId = auth(req, res);
   if (!deviceId) return;
-  const { title, message, reason, app: appName, link, topic, image } = req.body;
-  const notif = store.addNotification(deviceId, { title, message, reason, app: appName, link, topic, image });
+  const { title, message, reason, app: appName, link, topic, image, category } = req.body;
+  const notif = store.addNotification(deviceId, { title, message, reason, app: appName, link, topic, image, category });
   const delivered = sendToDevice(deviceId, { type: 'notification', ...notif });
   res.json({ ok: true, delivered, notification: notif });
 });
 
 // Listar notificações de um dispositivo, mais recentes primeiro.
-// POST /list { key, deviceId, status?, limit? (padrão 100, máx 500), offset? }
+// POST /list { key, deviceId, status?, category?, limit? (padrão 100, máx 500), offset? }
 app.post('/list', (req, res) => {
   const deviceId = auth(req, res);
   if (!deviceId) return;
-  const { status, limit = 100, offset = 0 } = req.body;
+  const { status, category, limit = 100, offset = 0 } = req.body;
   if (!Number.isInteger(limit) || limit < 1 || limit > 500 || !Number.isInteger(offset) || offset < 0) {
     return res.status(400).json({ error: 'limit deve ser inteiro entre 1 e 500, offset inteiro >= 0' });
   }
-  res.json({ notifications: store.listNotifications(deviceId, status, limit, offset) });
+  res.json({ notifications: store.listNotifications(deviceId, status, limit, offset, category) });
 });
 
 // Marcar notificação como concluída.
@@ -254,6 +254,56 @@ app.post('/delete', (req, res) => {
   const ok = store.deleteNotification(deviceId, id);
   if (ok) sendToDevice(deviceId, { type: 'delete', id });
   res.json({ ok });
+});
+
+// ---------- Categorias (até 4 por dispositivo; viram pastas na tela inicial do app) ----------
+
+function categoryResult(res, result) {
+  if (result.error) return res.status(result.error.includes('não encontrada') ? 404 : 400).json({ error: result.error });
+  res.json({ ok: true, ...result });
+}
+
+// POST /categories/list { key, deviceId } -> { categories: [{ id, name, image, pending, total }], max }
+app.post('/categories/list', (req, res) => {
+  const deviceId = auth(req, res);
+  if (!deviceId) return;
+  res.json({ categories: store.listCategories(deviceId), max: store.MAX_CATEGORIES });
+});
+
+// POST /categories/create { key, deviceId, name, image? }
+app.post('/categories/create', (req, res) => {
+  const deviceId = auth(req, res);
+  if (!deviceId) return;
+  const { name, image } = req.body;
+  if (typeof name !== 'string' || !name.trim()) return res.status(400).json({ error: 'name é obrigatório' });
+  categoryResult(res, store.createCategory(deviceId, { name, image }));
+});
+
+// POST /categories/update { key, deviceId, id, name?, image? }
+app.post('/categories/update', (req, res) => {
+  const deviceId = auth(req, res);
+  if (!deviceId) return;
+  const { id, name, image } = req.body;
+  if (!id) return res.status(400).json({ error: 'id é obrigatório' });
+  categoryResult(res, store.updateCategory(deviceId, id, { name, image }));
+});
+
+// POST /categories/delete { key, deviceId, id, deleteNotifications? }
+app.post('/categories/delete', (req, res) => {
+  const deviceId = auth(req, res);
+  if (!deviceId) return;
+  const { id, deleteNotifications } = req.body;
+  if (!id) return res.status(400).json({ error: 'id é obrigatório' });
+  categoryResult(res, store.deleteCategory(deviceId, id, deleteNotifications === true));
+});
+
+// POST /categories/clear { key, deviceId, id } — apaga as notificações da categoria, mantém a categoria
+app.post('/categories/clear', (req, res) => {
+  const deviceId = auth(req, res);
+  if (!deviceId) return;
+  const { id } = req.body;
+  if (!id) return res.status(400).json({ error: 'id é obrigatório' });
+  categoryResult(res, store.clearCategory(deviceId, id));
 });
 
 // Confirmar entrega/leitura (também pode ser feito via WebSocket).

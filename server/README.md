@@ -166,6 +166,7 @@ Os campos que dá pra mandar são esses:
 | `link`     | não         | um link (ticket, canal do Discord, pedido, etc) clicável no app |
 | `topic`    | não         | o assunto: notificações com o mesmo `topic` ficam empilhadas juntas no celular (ex: `"Ticket #123"`). Sem ele, agrupa pelo `app` |
 | `image`    | não         | link (http/https) de uma imagem: aparece na notificação e no modal de detalhes |
+| `category` | não         | categoria (pasta) no app. Até 4 por celular; se não existir e tiver vaga, é criada na hora |
 
 Se o celular estiver com o app aberto/serviço rodando, a notificação chega na
 hora. Se não estiver, fica guardada no servidor e é entregue assim que ele
@@ -209,6 +210,21 @@ curl -X POST "http://SEU_SERVIDOR:PORTA/delete" \
   -H "Content-Type: application/json" \
   -d '{"key":"SUA_API_KEY","deviceId":"meu-celular","id":"ID_DA_NOTIFICACAO"}'
 ```
+
+## Categorias
+
+Cada celular pode ter até 4 categorias, que viram pastas na tela inicial do app.
+Dá pra gerenciar tudo pelo app; pela API fica assim (todas POST, com `key` e `deviceId`):
+
+| Rota                  | Corpo extra                         | O que faz |
+|-----------------------|-------------------------------------|-----------|
+| `/categories/list`    | —                                   | lista com `pending` e `total` de cada uma |
+| `/categories/create`  | `name`, `image?`                    | cria (erro se já tiver 4 ou nome repetido) |
+| `/categories/update`  | `id`, `name?`, `image?`             | renomeia/troca a imagem; as notificações acompanham |
+| `/categories/delete`  | `id`, `deleteNotifications?`        | apaga; sem `deleteNotifications: true` elas ficam sem categoria |
+| `/categories/clear`   | `id`                                | apaga as notificações dela, mantém a categoria |
+
+O `/list` aceita `category` pra filtrar.
 
 ## Conexões que caem sem avisar
 

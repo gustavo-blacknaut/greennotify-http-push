@@ -90,9 +90,10 @@ object ApiClient {
 
     const val PAGE_SIZE = 100
 
-    fun listNotifications(ctx: Context, status: String?, offset: Int, onResult: (JSONObject?, String?) -> Unit) {
+    fun listNotifications(ctx: Context, status: String?, offset: Int, category: String?, onResult: (JSONObject?, String?) -> Unit) {
         val body = authBody(ctx).put("limit", PAGE_SIZE).put("offset", offset)
         if (status != null) body.put("status", status)
+        if (!category.isNullOrBlank()) body.put("category", category)
         post(ctx, "/list", body, onResult)
     }
 
@@ -106,5 +107,32 @@ object ApiClient {
 
     fun delete(ctx: Context, id: String, onResult: (JSONObject?, String?) -> Unit) {
         post(ctx, "/delete", authBody(ctx).put("id", id), onResult)
+    }
+
+    /** Envia uma notificação para este mesmo celular (criada pelo app). [body] já inclui key/deviceId. */
+    fun notify(ctx: Context, body: JSONObject, onResult: (JSONObject?, String?) -> Unit) {
+        post(ctx, "/notify", body, onResult)
+    }
+
+    // ---------- Categorias ----------
+
+    fun listCategories(ctx: Context, onResult: (JSONObject?, String?) -> Unit) {
+        post(ctx, "/categories/list", authBody(ctx), onResult)
+    }
+
+    fun createCategory(ctx: Context, name: String, image: String, onResult: (JSONObject?, String?) -> Unit) {
+        post(ctx, "/categories/create", authBody(ctx).put("name", name).put("image", image), onResult)
+    }
+
+    fun updateCategory(ctx: Context, id: String, name: String, image: String, onResult: (JSONObject?, String?) -> Unit) {
+        post(ctx, "/categories/update", authBody(ctx).put("id", id).put("name", name).put("image", image), onResult)
+    }
+
+    fun deleteCategory(ctx: Context, id: String, withNotifications: Boolean, onResult: (JSONObject?, String?) -> Unit) {
+        post(ctx, "/categories/delete", authBody(ctx).put("id", id).put("deleteNotifications", withNotifications), onResult)
+    }
+
+    fun clearCategory(ctx: Context, id: String, onResult: (JSONObject?, String?) -> Unit) {
+        post(ctx, "/categories/clear", authBody(ctx).put("id", id), onResult)
     }
 }

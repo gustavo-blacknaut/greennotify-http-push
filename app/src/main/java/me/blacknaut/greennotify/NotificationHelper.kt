@@ -143,11 +143,12 @@ object NotificationHelper {
         nm.notify(id, ALERT_ID, notification)
         postGroupSummary(ctx, nm, subject, id to notification)
 
-        val image = json.optString("image")
+        // Imagem própria ou, sem ela, a da categoria (ex.: logo do bot na pasta Hostmine).
+        val image = json.optString("image").ifBlank { json.optString("categoryImage") }
         if (isWebLink(image)) {
             val app = ctx.applicationContext
             Thread {
-                val bmp = ImageLoader.loadSync(image, 1024) ?: return@Thread
+                val bmp = ImageLoader.loadSync(image, 256) ?: return@Thread
                 val withPicture = buildIncoming(app, json, id, subject, bmp)
                 // Só atualiza se a notificação ainda estiver lá (você pode tê-la dispensado enquanto baixava).
                 if (nm.activeNotifications.any { it.tag == id && it.id == ALERT_ID }) nm.notify(id, ALERT_ID, withPicture)
@@ -199,19 +200,27 @@ object NotificationHelper {
             .setShowWhen(true)
             .setContentIntent(open)
             .setGroup(groupKey(subject))
-        if (picture != null) {
-            b.setStyle(
-                NotificationCompat.BigPictureStyle()
-                    .bigPicture(picture)
-                    .bigLargeIcon(null as android.graphics.Bitmap?)
-                    .setSummaryText(body.toString())
-            )
-                .setLargeIcon(android.graphics.Bitmap.createScaledBitmap(picture, 128, 128 * picture.height / picture.width.coerceAtLeast(1), true))
-                .setOnlyAlertOnce(true)
-        } else {
-            b.setStyle(NotificationCompat.BigTextStyle().bigText(body.toString())).setLargeIcon(logo(ctx))
-        }
+        // A imagem vai no círculo da notificação (como a foto de um contato); a grande fica no modal.
+        b.setStyle(NotificationCompat.BigTextStyle().bigText(body.toString()))
+            .setLargeIcon(if (picture != null) circle(picture) else logo(ctx))
+        if (picture != null) b.setOnlyAlertOnce(true)
+        json.optString("category").takeIf { it.isNotBlank() }?.let { b.setSubText(it) }
         return b.build()
+    }
+
+    /** Recorta a imagem em círculo (centro), para o ícone grande da notificação. */
+    private fun circle(src: android.graphics.Bitmap): android.graphics.Bitmap {
+        val size = 192
+        val side = minOf(src.width, src.height)
+        val crop = android.graphics.Bitmap.createBitmap(src, (src.width - side) / 2, (src.height - side) / 2, side, side)
+        val scaled = android.graphics.Bitmap.createScaledBitmap(crop, size, size, true)
+        val out = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(out)
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint)
+        paint.xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SRC_IN)
+        canvas.drawBitmap(scaled, 0f, 0f, paint)
+        return out
     }
 
     /** Assunto que junta notificações: o "topic" enviado; sem ele, a origem ("app"). */

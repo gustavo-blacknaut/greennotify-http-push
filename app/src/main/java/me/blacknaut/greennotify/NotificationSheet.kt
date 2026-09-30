@@ -42,7 +42,7 @@ class NotificationSheet : BottomSheetDialogFragment() {
 
         view.findViewById<TextView>(R.id.sheetTitle).text =
             item.title.ifBlank { getString(R.string.default_notification_title) }
-        val meta = listOf(item.topic, item.app).filter { it.isNotBlank() }.distinct().joinToString(" · ")
+        val meta = listOf(item.category, item.topic, item.app).filter { it.isNotBlank() }.distinct().joinToString(" · ")
         view.findViewById<TextView>(R.id.sheetMeta).apply {
             text = meta; visibility = if (meta.isBlank()) View.GONE else View.VISIBLE
         }

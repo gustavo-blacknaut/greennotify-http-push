@@ -169,4 +169,49 @@
     <string name="snack_new">Chegou notificação nova</string>
     <string name="snack_show">Ver</string>
     <string name="pinned_connected">Conectado há %1$s</string>
+    <string name="categories_title">Categorias</string>
+    <string name="category_add">Nova</string>
+    <string name="category_new">Nova categoria</string>
+    <string name="category_edit">Editar categoria</string>
+    <string name="category_name">Nome (ex.: Hostmine)</string>
+    <string name="category_image">Link da imagem (opcional)</string>
+    <string name="category_image_help">http(s)://… — aparece na pasta e nas notificações dela</string>
+    <string name="category_error_name">Dê um nome para a categoria</string>
+    <string name="category_menu_edit">Editar nome e imagem</string>
+    <string name="category_menu_compose">Nova notificação aqui</string>
+    <string name="category_menu_clear">Apagar todas as notificações</string>
+    <string name="category_menu_delete">Apagar categoria</string>
+    <string name="category_delete_title">Apagar a categoria %1$s?</string>
+    <string name="category_delete_message">Sem marcar a opção abaixo, as notificações dela continuam na lista geral.</string>
+    <plurals name="category_delete_also">
+        <item quantity="one">Apagar também a %1$d notificação dela</item>
+        <item quantity="other">Apagar também as %1$d notificações dela</item>
+    </plurals>
+    <string name="category_clear_title">Apagar as notificações de %1$s?</string>
+    <plurals name="category_clear_message">
+        <item quantity="one">A %1$d notificação desta categoria será apagada. A categoria continua existindo.</item>
+        <item quantity="other">As %1$d notificações desta categoria serão apagadas. A categoria continua existindo.</item>
+    </plurals>
+    <plurals name="category_cleared">
+        <item quantity="one">%1$d notificação apagada</item>
+        <item quantity="other">%1$d notificações apagadas</item>
+    </plurals>
+    <string name="category_deleted">Categoria apagada</string>
+    <string name="category_saved">Categoria salva</string>
+    <string name="button_cancel">Cancelar</string>
+    <string name="fab_new">Nova</string>
+    <string name="compose_title">Nova notificação</string>
+    <string name="compose_subtitle">Vai para o servidor e chega neste celular como qualquer outra.</string>
+    <string name="compose_field_title">Título</string>
+    <string name="compose_field_message">Mensagem</string>
+    <string name="compose_field_reason">Motivo (opcional)</string>
+    <string name="compose_field_category">Categoria</string>
+    <string name="compose_field_link">Link (opcional)</string>
+    <string name="compose_field_image">Link da imagem (opcional)</string>
+    <string name="compose_no_category">Sem categoria</string>
+    <string name="compose_send">Enviar</string>
+    <string name="compose_sent">Notificação enviada</string>
+    <string name="compose_error_empty">Escreva um título ou uma mensagem</string>
+    <string name="compose_origin">Celular</string>
+    <string name="folders_count">%1$d/%2$d</string>
 </resources>

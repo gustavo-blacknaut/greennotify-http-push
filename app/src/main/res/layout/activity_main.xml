@@ -154,6 +154,40 @@
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
+    <!-- Categorias: até 4 pastas (toque filtra, segurar edita/apaga) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="6dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/categories_title"
+            android:textAppearance="?attr/textAppearanceTitleSmall"
+            android:textColor="?attr/colorOnSurface" />
+
+        <TextView
+            android:id="@+id/textFoldersCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?attr/textAppearanceLabelMedium"
+            android:textColor="?attr/colorOnSurfaceVariant" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/folderRow"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingHorizontal="12dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="10dp" />
+
         </LinearLayout>
 
     <!-- Filtros -->
@@ -163,6 +197,12 @@
         android:clipToPadding="false"
         android:paddingHorizontal="16dp"
         android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
         <com.google.android.material.chip.ChipGroup
             android:id="@+id/chipsFilter"
@@ -194,6 +234,19 @@
                 android:layout_height="wrap_content"
                 android:text="@string/filter_archived" />
         </com.google.android.material.chip.ChipGroup>
+
+            <!-- Pasta aberta: fica visível mesmo com o cabeçalho recolhido; o X volta para todas -->
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipCategory"
+                style="@style/Widget.Material3.Chip.Input"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:checkable="false"
+                android:visibility="gone"
+                app:chipIcon="@drawable/ic_folder"
+                app:chipIconVisible="true" />
+        </LinearLayout>
     </HorizontalScrollView>
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -214,7 +267,7 @@
                 android:layout_height="match_parent"
                 android:clipToPadding="false"
                 android:paddingTop="4dp"
-                android:paddingBottom="24dp" />
+                android:paddingBottom="96dp" />
 
             <LinearLayout
                 android:id="@+id/emptyState"
@@ -251,4 +304,13 @@
             </LinearLayout>
         </FrameLayout>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/fabCompose"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="16dp"
+        android:text="@string/fab_new"
+        app:icon="@drawable/ic_add" />
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

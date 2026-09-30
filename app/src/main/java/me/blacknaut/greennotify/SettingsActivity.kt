@@ -166,7 +166,7 @@ class SettingsActivity : AppCompatActivity() {
             return
         }
         showTest(getString(R.string.test_running), ok = null)
-        ApiClient.listNotifications(this, "pending", 0) { _, error ->
+        ApiClient.listNotifications(this, "pending", 0, null) { _, error ->
             if (isDestroyed) return@listNotifications
             if (error == null) showTest(getString(R.string.test_ok), ok = true) else showTest(error, ok = false)
         }
