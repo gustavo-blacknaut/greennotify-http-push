@@ -23,6 +23,7 @@ db.exec(`
     app TEXT,
     link TEXT,
     topic TEXT,
+    image TEXT,
     status TEXT NOT NULL DEFAULT 'pending',
     delivered INTEGER NOT NULL DEFAULT 0,
     createdAt INTEGER NOT NULL
@@ -35,6 +36,7 @@ db.exec(`
 
 const columns = db.prepare('PRAGMA table_info(notifications)').all().map(c => c.name);
 if (!columns.includes('topic')) db.exec("ALTER TABLE notifications ADD COLUMN topic TEXT DEFAULT ''");
+if (!columns.includes('image')) db.exec("ALTER TABLE notifications ADD COLUMN image TEXT DEFAULT ''");
 
 function migrateLegacyJson() {
   const legacyFile = path.join(__dirname, 'data.json');
@@ -112,7 +114,7 @@ function rowToNotification(row) {
   return { ...row, delivered: !!row.delivered };
 }
 
-function addNotification(deviceId, { title, message, reason, app, link, topic }) {
+function addNotification(deviceId, { title, message, reason, app, link, topic, image }) {
   const notif = {
     id: genId(),
     deviceId,
@@ -122,13 +124,14 @@ function addNotification(deviceId, { title, message, reason, app, link, topic })
     app: app || 'desconhecido',
     link: link || '',
     topic: topic || '',
+    image: image || '',
     status: 'pending',
     delivered: 0,
     createdAt: Date.now()
   };
   db.prepare(`
-    INSERT INTO notifications (id, deviceId, title, message, reason, app, link, topic, status, delivered, createdAt)
-    VALUES (@id, @deviceId, @title, @message, @reason, @app, @link, @topic, @status, @delivered, @createdAt)
+    INSERT INTO notifications (id, deviceId, title, message, reason, app, link, topic, image, status, delivered, createdAt)
+    VALUES (@id, @deviceId, @title, @message, @reason, @app, @link, @topic, @image, @status, @delivered, @createdAt)
   `).run(notif);
   return rowToNotification(notif);
 }

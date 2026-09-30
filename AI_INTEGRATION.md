@@ -69,7 +69,8 @@ Corpo:
   "reason": "Por que essa notificação está sendo enviada",
   "app": "Nome da sua aplicação",
   "link": "https://opcional.com/algum-lugar",
-  "topic": "Assunto opcional para agrupar"
+  "topic": "Assunto opcional para agrupar",
+  "image": "https://opcional.com/imagem.jpg"
 }
 ```
 
@@ -83,6 +84,7 @@ Corpo:
 | `app`      | string | não | aparece como "Origem" — normalmente o nome da aplicação/serviço que está chamando |
 | `link`     | string | não | URL completa (com `https://` ou `http://`). Se enviado, tocar na notificação ou no item da lista abre esse link direto |
 | `topic`    | string | não | Assunto. Notificações com o mesmo `topic` ficam empilhadas numa entrada só no celular (use um identificador estável: `"Ticket #123"`, `"Pedido #55"`, `"Backup diário"`). Sem `topic`, o app agrupa pelo `app` |
+| `image`    | string | não | URL http(s) de uma imagem. Aparece grande na notificação (Android) e no modal de detalhes ao tocar. Prefira imagens leves (até ~1 MB) |
 
 Resposta (200):
 

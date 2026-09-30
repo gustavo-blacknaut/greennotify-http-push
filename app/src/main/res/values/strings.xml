@@ -153,4 +153,19 @@
     <string name="duration_zero">0 min</string>
     <string name="button_system_battery">Ver bateria no sistema</string>
     <string name="usage_battery_note">Na tela do sistema, procure GreenNotify: ela mostra o consumo real em %% e mAh e o tempo em segundo plano. Compare depois de alguns dias em cada configuração.</string>
+    <string name="pinned_no_network">Sem conexão com a internet</string>
+    <string name="pinned_state_realtime">Tempo real no %1$s · sinal de vida a cada %2$d min</string>
+    <string name="pinned_state_polling">Economia no %1$s · consulta a cada %2$d min</string>
+    <string name="pinned_state_off">Recebimento desligado no %1$s</string>
+    <string name="pinned_next">Próxima verificação às %1$s</string>
+    <string name="pinned_today">Hoje: %1$s</string>
+    <string name="pinned_usage_wifi">%1$s no Wi‑Fi</string>
+    <string name="pinned_usage_mobile">%1$s nos dados</string>
+    <string name="action_details">Detalhes</string>
+    <string name="action_delete">Apagar</string>
+    <string name="read_more">Ler mais</string>
+    <string name="read_less">Ler menos</string>
+    <string name="sheet_sent_at">Enviada em %1$s</string>
+    <string name="snack_new">Chegou notificação nova</string>
+    <string name="snack_show">Ver</string>
 </resources>

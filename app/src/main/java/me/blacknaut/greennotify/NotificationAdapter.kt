@@ -5,6 +5,7 @@ import android.text.format.DateUtils
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.widget.TooltipCompat
 import androidx.core.content.ContextCompat
@@ -16,6 +17,8 @@ import kotlin.math.abs
 class NotificationAdapter(
     private val items: MutableList<NotificationItem>,
     private val onOpenLink: (String) -> Unit,
+    /** Toque no cartão ou no botão de informações: abre o modal com os detalhes. */
+    private val onOpen: (NotificationItem) -> Unit,
     /** Concluir (ou reabrir, se já concluída). */
     private val onPrimary: (NotificationItem) -> Unit,
     /** Arquivar (ou restaurar, se já arquivada). */
@@ -32,7 +35,12 @@ class NotificationAdapter(
         val link: MaterialButton = view.findViewById(R.id.buttonLink)
         val primary: MaterialButton = view.findViewById(R.id.buttonComplete)
         val secondary: MaterialButton = view.findViewById(R.id.buttonArchive)
+        val info: MaterialButton = view.findViewById(R.id.buttonInfo)
+        val readMore: TextView = view.findViewById(R.id.textReadMore)
+        val thumb: ImageView = view.findViewById(R.id.imageThumb)
     }
+
+    private val expanded = HashSet<String>()
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder =
         ViewHolder(LayoutInflater.from(parent.context).inflate(R.layout.item_notification, parent, false))
@@ -57,6 +65,35 @@ class NotificationAdapter(
 
         holder.message.text = item.message
         holder.message.visibility = if (item.message.isBlank()) View.GONE else View.VISIBLE
+        // Texto grande: mostra 4 linhas e "Ler mais" (o texto completo também está no modal).
+        val open = item.id in expanded
+        holder.message.maxLines = if (open) Int.MAX_VALUE else COLLAPSED_LINES
+        holder.readMore.visibility = View.GONE
+        holder.message.post {
+            val layout = holder.message.layout
+            val long = layout != null && (layout.lineCount > COLLAPSED_LINES || layout.getEllipsisCount(layout.lineCount - 1) > 0)
+            holder.readMore.visibility = if (long) View.VISIBLE else View.GONE
+            holder.readMore.setText(if (open) R.string.read_less else R.string.read_more)
+        }
+        holder.readMore.setOnClickListener {
+            if (!expanded.add(item.id)) expanded.remove(item.id)
+            notifyItemChanged(holder.bindingAdapterPosition)
+        }
+
+        holder.thumb.setImageDrawable(null)
+        if (isWebLink(item.image)) {
+            holder.thumb.visibility = View.VISIBLE
+            holder.thumb.tag = item.id
+            ImageLoader.load(item.image, 720) { bmp ->
+                if (holder.thumb.tag != item.id) return@load
+                if (bmp != null) holder.thumb.setImageBitmap(bmp) else holder.thumb.visibility = View.GONE
+            }
+        } else {
+            holder.thumb.visibility = View.GONE
+        }
+        holder.itemView.setOnClickListener { onOpen(item) }
+        holder.info.setOnClickListener { onOpen(item) }
+        TooltipCompat.setTooltipText(holder.info, ctx.getString(R.string.action_details))
         holder.reason.text = ctx.getString(R.string.reason_format, item.reason)
         holder.reason.visibility = if (item.reason.isBlank()) View.GONE else View.VISIBLE
 
@@ -124,6 +161,7 @@ class NotificationAdapter(
     }
 
     companion object {
+        private const val COLLAPSED_LINES = 4
         private val AVATAR_COLORS = intArrayOf(
             R.color.avatar_1, R.color.avatar_2, R.color.avatar_3,
             R.color.avatar_4, R.color.avatar_5, R.color.avatar_6

@@ -25,7 +25,7 @@ import com.google.android.material.snackbar.Snackbar
 import org.json.JSONArray
 
 /** Tela inicial: estado da conexão no topo e a lista de notificações logo abaixo. */
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), NotificationSheet.Host {
 
     private lateinit var adapter: NotificationAdapter
     private lateinit var recycler: RecyclerView
@@ -82,6 +82,7 @@ class MainActivity : AppCompatActivity() {
         adapter = NotificationAdapter(
             mutableListOf(),
             onOpenLink = { openLink(it) },
+            onOpen = { NotificationSheet.show(this, it) },
             onPrimary = { item -> changeStatus(item, if (item.status == "done") "pending" else "done") },
             onSecondary = { item -> changeStatus(item, if (item.status == "archived") "pending" else "archived") }
         )
@@ -101,9 +102,28 @@ class MainActivity : AppCompatActivity() {
         swipeRefresh.setColorSchemeColors(MaterialColors.getColor(recycler, androidx.appcompat.R.attr.colorPrimary))
         swipeRefresh.setOnRefreshListener { load() }
         // O filho direto é um FrameLayout: sem isso o "puxar para atualizar" dispara no meio da lista.
-        swipeRefresh.setOnChildScrollUpCallback { _, _ -> recycler.canScrollVertically(-1) }
+        // Também só puxa para atualizar com o cabeçalho (logo/status) totalmente visível.
+        val appBar = findViewById<com.google.android.material.appbar.AppBarLayout>(R.id.appBar)
+        var appBarOffset = 0
+        appBar.addOnOffsetChangedListener { _, offset -> appBarOffset = offset }
+        swipeRefresh.setOnChildScrollUpCallback { _, _ -> recycler.canScrollVertically(-1) || appBarOffset != 0 }
 
         requestNotificationPermissionIfNeeded()
+        handleIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    /** Tocar numa notificação do celular abre direto o modal daquela notificação. */
+    private fun handleIntent(intent: Intent?) {
+        val json = intent?.getStringExtra(EXTRA_NOTIF) ?: return
+        intent.removeExtra(EXTRA_NOTIF)
+        val item = runCatching { NotificationItem.fromJson(org.json.JSONObject(json)) }.getOrNull() ?: return
+        NotificationSheet.show(this, item)
     }
 
     override fun onResume() {
@@ -112,9 +132,17 @@ class MainActivity : AppCompatActivity() {
         refreshStatus()
         load()
         PinnedSummary.refreshAsync(this)
+        // Chegou notificação com a tela aberta: a lista atualiza sozinha (só no topo, para não pular).
+        NotificationBus.listener = {
+            if (!isDestroyed) {
+                if (!recycler.canScrollVertically(-1)) load() else Snackbar.make(recycler, R.string.snack_new, Snackbar.LENGTH_LONG)
+                    .setAction(R.string.snack_show) { recycler.scrollToPosition(0); load() }.show()
+            }
+        }
     }
 
     override fun onPause() {
+        NotificationBus.listener = null
         Prefs.unregisterListener(this, prefsListener)
         super.onPause()
     }
@@ -298,6 +326,16 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Toast.makeText(this, R.string.error_invalid_link, Toast.LENGTH_SHORT).show()
         }
+    }
+
+    // ---------- Ações do modal ----------
+
+    override fun onSheetLink(link: String) = openLink(link)
+    override fun onSheetPrimary(item: NotificationItem) = changeStatus(item, if (item.status == "done") "pending" else "done")
+    override fun onSheetSecondary(item: NotificationItem) = changeStatus(item, if (item.status == "archived") "pending" else "archived")
+
+    companion object {
+        const val EXTRA_NOTIF = "notification_json"
     }
 
     private fun openSettings() = startActivity(Intent(this, SettingsActivity::class.java))

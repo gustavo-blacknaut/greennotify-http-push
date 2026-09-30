@@ -65,6 +65,7 @@ curl -X POST "http://SEU_SERVIDOR:8080/notify" \
 - `app` — nome de quem está enviando (aparece como "Origem")
 - `topic` — assunto opcional: notificações com o mesmo `topic` ficam empilhadas juntas no
   celular (ex: `"Ticket #123"`). Sem ele, o app agrupa pelo `app`.
+- `image` — link (http/https) de uma imagem opcional: aparece grande na notificação e no modal de detalhes.
 - `link` — link opcional (ticket, canal do Discord, pedido, etc). Ao tocar na notificação
   ou no item da lista, o link abre direto no celular.
 

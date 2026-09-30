@@ -165,6 +165,7 @@ Os campos que dá pra mandar são esses:
 | `app`      | não         | nome de quem tá mandando, aparece como "Origem"               |
 | `link`     | não         | um link (ticket, canal do Discord, pedido, etc) clicável no app |
 | `topic`    | não         | o assunto: notificações com o mesmo `topic` ficam empilhadas juntas no celular (ex: `"Ticket #123"`). Sem ele, agrupa pelo `app` |
+| `image`    | não         | link (http/https) de uma imagem: aparece na notificação e no modal de detalhes |
 
 Se o celular estiver com o app aberto/serviço rodando, a notificação chega na
 hora. Se não estiver, fica guardada no servidor e é entregue assim que ele

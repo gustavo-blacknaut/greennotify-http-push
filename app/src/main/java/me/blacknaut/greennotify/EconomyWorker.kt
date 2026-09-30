@@ -62,6 +62,8 @@ class EconomyWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params
             Prefs.isRemindEnabled(ctx) && Prefs.getPendingCount(ctx) > 0 &&
             now - Prefs.getLastReminderAt(ctx) >= TimeUnit.MINUTES.toMillis(REMIND_MINUTES) - 30_000
         if (reminder) Prefs.setLastReminderAt(ctx, now)
+        // A próxima hora precisa estar salva antes de redesenhar o aviso, que a mostra.
+        Prefs.setNextCheckAt(ctx, System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(nextMinutes(ctx)))
         PinnedSummary.post(ctx, alert = reminder)
         Stats.sample(ctx, p.net)
 

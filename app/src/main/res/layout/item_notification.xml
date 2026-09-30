@@ -85,6 +85,27 @@
             android:textColor="?attr/colorOnSurface" />
 
         <TextView
+            android:id="@+id/textReadMore"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:paddingVertical="4dp"
+            android:text="@string/read_more"
+            android:textAppearance="?attr/textAppearanceLabelLarge"
+            android:textColor="?attr/colorPrimary"
+            android:visibility="gone" />
+
+        <com.google.android.material.imageview.ShapeableImageView
+            android:id="@+id/imageThumb"
+            android:layout_width="match_parent"
+            android:layout_height="160dp"
+            android:layout_marginTop="10dp"
+            android:contentDescription="@null"
+            android:scaleType="centerCrop"
+            android:visibility="gone"
+            app:shapeAppearanceOverlay="@style/GreenNotify.Image" />
+
+        <TextView
             android:id="@+id/textReason"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -115,6 +136,14 @@
                 android:layout_width="0dp"
                 android:layout_height="0dp"
                 android:layout_weight="1" />
+
+            <Button
+                android:id="@+id/buttonInfo"
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:contentDescription="@string/action_details"
+                app:icon="@drawable/ic_info" />
 
             <Button
                 android:id="@+id/buttonComplete"

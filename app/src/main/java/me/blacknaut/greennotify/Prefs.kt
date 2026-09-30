@@ -39,6 +39,12 @@ object Prefs {
         prefs(ctx).edit().putString("conn_status", status).apply()
     }
 
+    /** Hora da próxima verificação agendada (0 = nenhuma) e desde quando o app está ativo. */
+    fun getNextCheckAt(ctx: Context): Long = prefs(ctx).getLong("next_check_at", 0)
+    fun setNextCheckAt(ctx: Context, at: Long) { prefs(ctx).edit().putLong("next_check_at", at).apply() }
+    fun getActiveSince(ctx: Context): Long = prefs(ctx).getLong("active_since", 0)
+    fun setActiveSince(ctx: Context, at: Long) { prefs(ctx).edit().putLong("active_since", at).apply() }
+
     private fun prefs(ctx: Context) =
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 

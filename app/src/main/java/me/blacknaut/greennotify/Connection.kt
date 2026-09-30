@@ -9,6 +9,7 @@ object Connection {
 
     fun start(ctx: Context) {
         Prefs.setLastError(ctx, null)
+        if (!Prefs.isRunning(ctx) || Prefs.getActiveSince(ctx) == 0L) Prefs.setActiveSince(ctx, System.currentTimeMillis())
         Prefs.setRunning(ctx, true)
         // O serviço só existe se alguma rede estiver em tempo real; ele mesmo cuida de trocar de rede.
         if (Policy.anyRealtime(ctx)) {
@@ -24,6 +25,8 @@ object Connection {
         EconomyWorker.cancel(ctx)
         ctx.stopService(Intent(ctx, NotifyConnectionService::class.java))
         Prefs.setRunning(ctx, false)
+        Prefs.setActiveSince(ctx, 0)
+        Prefs.setNextCheckAt(ctx, 0)
         PinnedSummary.clear(ctx)
     }
 

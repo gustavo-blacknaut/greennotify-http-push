@@ -133,7 +133,7 @@ const heartbeat = setInterval(() => {
 app.get('/health', (req, res) => res.json({ ok: true }));
 
 const STATUSES = ['pending', 'done', 'archived'];
-const MAX_LENGTHS = { title: 200, message: 4000, reason: 1000, app: 100, link: 2000, name: 100, topic: 100 };
+const MAX_LENGTHS = { title: 200, message: 4000, reason: 1000, app: 100, link: 2000, name: 100, topic: 100, image: 2000 };
 
 function validateFields(body) {
   for (const [field, max] of Object.entries(MAX_LENGTHS)) {
@@ -143,6 +143,7 @@ function validateFields(body) {
     if (value.length > max) return `${field} excede ${max} caracteres`;
   }
   if (body.link && !/^https?:\/\//i.test(body.link)) return 'link deve começar com http:// ou https://';
+  if (body.image && !/^https?:\/\//i.test(body.image)) return 'image deve começar com http:// ou https://';
   if (body.status !== undefined && !STATUSES.includes(body.status)) {
     return `status deve ser um de: ${STATUSES.join(', ')}`;
   }
@@ -199,12 +200,12 @@ app.post('/register', registerLimiter, (req, res) => {
 app.use(['/notify', '/list', '/complete', '/move', '/delete', '/ack'], failedAuthLimiter);
 
 // Enviar notificação (usado pelas suas outras aplicações).
-// POST /notify { key, deviceId, title, message, reason, app, link, topic }
+// POST /notify { key, deviceId, title, message, reason, app, link, topic, image }
 app.post('/notify', (req, res) => {
   const deviceId = auth(req, res);
   if (!deviceId) return;
-  const { title, message, reason, app: appName, link, topic } = req.body;
-  const notif = store.addNotification(deviceId, { title, message, reason, app: appName, link, topic });
+  const { title, message, reason, app: appName, link, topic, image } = req.body;
+  const notif = store.addNotification(deviceId, { title, message, reason, app: appName, link, topic, image });
   const delivered = sendToDevice(deviceId, { type: 'notification', ...notif });
   res.json({ ok: true, delivered, notification: notif });
 });

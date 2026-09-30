@@ -5,7 +5,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -60,17 +59,34 @@ object NotificationHelper {
     }
 
     /**
-     * Aviso fixo. Sem pendentes: discreto, só a logo na barra de status e, na gaveta, uma linha
-     * (texto de conexão só se algo estiver errado). Com pendentes: prioridade máxima, no topo,
-     * "N notificações pendentes · Última: ...". [alert] faz tocar de novo (lembrete).
+     * Aviso fixo, estilo status de VPN: sempre presente enquanto o app está ativo.
+     *  - cronômetro de tempo ativo (o próprio sistema desenha, sem gastar bateria);
+     *  - estado da rede atual, hora da próxima verificação e consumo de hoje (texto montado só quando algo muda);
+     *  - sem pendentes: discreto, "Nenhuma notificação pendente";
+     *  - com pendentes: prioridade máxima, no topo, "N notificações pendentes · Última: ...".
+     * [alert] faz tocar de novo (lembrete).
      */
     fun pinned(ctx: Context, foreground: Boolean, alert: Boolean): android.app.Notification {
         createChannels(ctx)
         val count = Prefs.getPendingCount(ctx)
         val latest = Prefs.getLatestTitle(ctx)
         val problem = Prefs.getConnStatus(ctx)
+        val p = Policy.current(ctx)
+        val netName = ctx.getString(if (p.net == NetworkInfo.Net.MOBILE) R.string.net_mobile else R.string.net_wifi)
+        val state = when {
+            p.net == NetworkInfo.Net.NONE -> ctx.getString(R.string.pinned_no_network)
+            p.kind == Policy.REALTIME -> ctx.getString(R.string.pinned_state_realtime, netName, p.pingMin)
+            p.kind == Policy.POLLING -> ctx.getString(R.string.pinned_state_polling, netName, p.pollMin)
+            else -> ctx.getString(R.string.pinned_state_off, netName)
+        }
+        val nextAt = Prefs.getNextCheckAt(ctx)
+        val next = if (p.kind == Policy.POLLING && nextAt > System.currentTimeMillis())
+            ctx.getString(R.string.pinned_next, android.text.format.DateFormat.getTimeFormat(ctx).format(java.util.Date(nextAt))) else ""
+        val details = listOf(state, next, todayUsage(ctx)).filter { it.isNotBlank() }
+        val since = Prefs.getActiveSince(ctx)
+
         val open = PendingIntent.getActivity(
-            ctx, PINNED_ID, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            ctx, PINNED_ID, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val b = NotificationCompat.Builder(ctx, if (count > 0) CHANNEL_PINNED else CHANNEL_STATUS)
@@ -78,16 +94,19 @@ object NotificationHelper {
             .setColor(ContextCompat.getColor(ctx, R.color.green))
             .setContentIntent(open)
             .setOngoing(true)
-            .setShowWhen(false)
             .setOnlyAlertOnce(!alert)
             .setSilent(!alert)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+        if (since > 0) b.setUsesChronometer(true).setWhen(since).setShowWhen(true) else b.setShowWhen(false)
+
         if (count > 0) {
             val title = ctx.resources.getQuantityString(R.plurals.pinned_count, count, count)
             // Colorida (fundo verde) o título fica na cor do sistema; senão, em destaque verde.
             val colorized = foreground && Build.VERSION.SDK_INT < 36
+            val head = if (latest.isNotBlank()) ctx.getString(R.string.pinned_latest, latest) else problem
             b.setContentTitle(if (colorized) title else highlight(ctx, title))
-                .setContentText(if (latest.isNotBlank()) ctx.getString(R.string.pinned_latest, latest) else problem)
+                .setContentText(head.ifBlank { state })
+                .setStyle(NotificationCompat.BigTextStyle().bigText((listOf(head) + details).filter { it.isNotBlank() }.joinToString("\n")))
                 .setLargeIcon(logo(ctx))
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_REMINDER)
@@ -96,54 +115,89 @@ object NotificationHelper {
             if (Build.VERSION.SDK_INT >= 36) b.extras.putBoolean("android.requestPromotedOngoing", true)
             else if (foreground) b.setColorized(true)
         } else {
+            val line = problem.ifBlank { listOf(state, next).filter { it.isNotBlank() }.joinToString(" · ") }
             b.setContentTitle(ctx.getString(R.string.pinned_none))
+                .setContentText(line)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(details.joinToString("\n")))
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setCategory(NotificationCompat.CATEGORY_STATUS)
-            if (problem.isNotBlank()) b.setContentText(problem)
         }
         if (foreground) b.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
         return b.build()
     }
 
-    /** Exibe uma notificação recebida do servidor, incluindo o motivo (reason). */
+    /** "Hoje: 12,4 KB no Wi‑Fi · 3,1 KB nos dados" (só as redes com tráfego). */
+    private fun todayUsage(ctx: Context): String {
+        val wifi = Stats.counters(ctx, NetworkInfo.Net.WIFI, 1).bytes
+        val mobile = Stats.counters(ctx, NetworkInfo.Net.MOBILE, 1).bytes
+        if (wifi == 0L && mobile == 0L) return ""
+        val parts = mutableListOf<String>()
+        if (wifi > 0) parts += ctx.getString(R.string.pinned_usage_wifi, Fmt.bytes(wifi))
+        if (mobile > 0) parts += ctx.getString(R.string.pinned_usage_mobile, Fmt.bytes(mobile))
+        return ctx.getString(R.string.pinned_today, parts.joinToString(" · "))
+    }
+
+    /**
+     * Exibe uma notificação recebida do servidor. Tocar nela abre o modal com os detalhes daquela
+     * notificação. Se tiver imagem, ela é baixada em segundo plano e a notificação é atualizada com ela.
+     */
     fun showIncoming(ctx: Context, json: JSONObject) {
         // No modo economia o serviço (que criava os canais) pode nunca ter rodado.
         createChannels(ctx)
+        val id = json.optString("id", System.currentTimeMillis().toString())
+        val subject = subjectOf(ctx, json)
+        val nm = ctx.getSystemService(NotificationManager::class.java)
+
+        val notification = buildIncoming(ctx, json, id, subject, null)
+        nm.notify(id, ALERT_ID, notification)
+        postGroupSummary(ctx, nm, subject, id to notification)
+
+        val image = json.optString("image")
+        if (isWebLink(image)) {
+            val app = ctx.applicationContext
+            Thread {
+                val bmp = ImageLoader.loadSync(image, 1024) ?: return@Thread
+                val withPicture = buildIncoming(app, json, id, subject, bmp)
+                // Só atualiza se a notificação ainda estiver lá (você pode tê-la dispensado enquanto baixava).
+                if (nm.activeNotifications.any { it.tag == id && it.id == ALERT_ID }) nm.notify(id, ALERT_ID, withPicture)
+            }.start()
+        }
+        NotificationBus.newNotification()
+    }
+
+    private fun buildIncoming(
+        ctx: Context, json: JSONObject, id: String, subject: String, picture: android.graphics.Bitmap?
+    ): android.app.Notification {
         val title = json.optString("title").ifBlank { ctx.getString(R.string.default_notification_title) }
         val message = json.optString("message", "")
         val reason = json.optString("reason", "")
         val app = json.optString("app", "")
-        val link = json.optString("link", "")
-        val id = json.optString("id", System.currentTimeMillis().toString())
-        val subject = subjectOf(ctx, json)
 
-        val bodyBuilder = StringBuilder()
-        if (message.isNotBlank()) bodyBuilder.append(message)
+        val body = StringBuilder()
+        if (message.isNotBlank()) body.append(message)
         if (reason.isNotBlank()) {
-            if (bodyBuilder.isNotEmpty()) bodyBuilder.append("\n")
-            bodyBuilder.append(ctx.getString(R.string.reason_format, reason))
+            if (body.isNotEmpty()) body.append("\n")
+            body.append(ctx.getString(R.string.reason_format, reason))
         }
         if (app.isNotBlank()) {
-            if (bodyBuilder.isNotEmpty()) bodyBuilder.append("\n")
-            bodyBuilder.append(ctx.getString(R.string.origin_format, app))
+            if (body.isNotEmpty()) body.append("\n")
+            body.append(ctx.getString(R.string.origin_format, app))
         }
 
-        // Sem app que abra o link, o toque cai no histórico em vez de não fazer nada.
-        val linkIntent = if (isWebLink(link)) Intent(Intent.ACTION_VIEW, Uri.parse(link)) else null
-        val targetIntent = linkIntent?.takeIf { it.resolveActivity(ctx.packageManager) != null }
-            ?: Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        val pendingIntent = PendingIntent.getActivity(
-            ctx, id.hashCode(), targetIntent,
+        // Tocar abre o modal desta notificação (o link fica dentro dele); o texto completo está lá.
+        val open = PendingIntent.getActivity(
+            ctx, id.hashCode(),
+            Intent(ctx, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra(MainActivity.EXTRA_NOTIF, json.toString()),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notification = NotificationCompat.Builder(ctx, CHANNEL_ALERTS)
+        val b = NotificationCompat.Builder(ctx, CHANNEL_ALERTS)
             .setSmallIcon(R.drawable.ic_stat_greennotify)
             .setColor(ContextCompat.getColor(ctx, R.color.green))
             .setContentTitle(highlight(ctx, title))
             .setContentText(if (message.isNotBlank()) message else reason)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(bodyBuilder.toString()))
-            .setLargeIcon(logo(ctx))
             .setAutoCancel(true)
             // Canal IMPORTANCE_HIGH + prioridade máxima: aparece como pop-up e fica no topo da lista.
             .setPriority(NotificationCompat.PRIORITY_MAX)
@@ -152,13 +206,21 @@ object NotificationHelper {
             // Hora do envio, não da chegada (no modo economia pode chegar minutos depois).
             .setWhen(json.optLong("createdAt").takeIf { it > 0 } ?: System.currentTimeMillis())
             .setShowWhen(true)
-            .setContentIntent(pendingIntent)
+            .setContentIntent(open)
             .setGroup(groupKey(subject))
-            .build()
-
-        val nm = ctx.getSystemService(NotificationManager::class.java)
-        nm.notify(id, ALERT_ID, notification)
-        postGroupSummary(ctx, nm, subject, id to notification)
+        if (picture != null) {
+            b.setStyle(
+                NotificationCompat.BigPictureStyle()
+                    .bigPicture(picture)
+                    .bigLargeIcon(null as android.graphics.Bitmap?)
+                    .setSummaryText(body.toString())
+            )
+                .setLargeIcon(android.graphics.Bitmap.createScaledBitmap(picture, 128, 128 * picture.height / picture.width.coerceAtLeast(1), true))
+                .setOnlyAlertOnce(true)
+        } else {
+            b.setStyle(NotificationCompat.BigTextStyle().bigText(body.toString())).setLargeIcon(logo(ctx))
+        }
+        return b.build()
     }
 
     /** Assunto que junta notificações: o "topic" enviado; sem ele, a origem ("app"). */
@@ -254,5 +316,17 @@ object NotificationHelper {
         nm.activeNotifications
             .filter { it.id == ALERT_ID && it.tag != null && (isReceived(it) || it.tag.startsWith(SUMMARY_PREFIX)) }
             .forEach { nm.cancel(it.tag, ALERT_ID) }
+    }
+}
+
+/** Formata bytes em pt-BR (mesmo formato da tela de consumo). */
+object Fmt {
+    fun bytes(b: Long): String {
+        val pt = java.util.Locale("pt", "BR")
+        return when {
+            b < 1024 -> "$b B"
+            b < 1024 * 1024 -> String.format(pt, "%.1f KB", b / 1024.0)
+            else -> String.format(pt, "%.2f MB", b / 1048576.0)
+        }
     }
 }
