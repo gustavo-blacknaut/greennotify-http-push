@@ -122,6 +122,10 @@ class SettingsActivity : AppCompatActivity() {
         findViewById<View>(R.id.buttonBack).setOnClickListener { finish() }
         findViewById<View>(R.id.buttonBattery).setOnClickListener { requestIgnoreBatteryOptimizations() }
         findViewById<View>(R.id.buttonAlarmTest).setOnClickListener { AlarmSetup.test(this) }
+        findViewById<MaterialSwitch>(R.id.switchAlarmTorch).apply {
+            isChecked = Prefs.isAlarmTorch(this@SettingsActivity)
+            setOnCheckedChangeListener { _, on -> Prefs.setAlarmTorch(this@SettingsActivity, on) }
+        }
         findViewById<View>(R.id.buttonAlarmFix).setOnClickListener {
             AlarmSetup.missing(this).firstOrNull()?.let { AlarmSetup.open(this, it) }
         }

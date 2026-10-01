@@ -45,6 +45,10 @@ object Prefs {
     fun getActiveSince(ctx: Context): Long = prefs(ctx).getLong("active_since", 0)
     fun setActiveSince(ctx: Context, at: Long) { prefs(ctx).edit().putLong("active_since", at).apply() }
 
+    /** Piscar a lanterna durante o alarme (só no alerta máximo). Padrão: ligado. */
+    fun isAlarmTorch(ctx: Context): Boolean = prefs(ctx).getBoolean("alarm_torch", true)
+    fun setAlarmTorch(ctx: Context, on: Boolean) { prefs(ctx).edit().putBoolean("alarm_torch", on).apply() }
+
     private fun prefs(ctx: Context) =
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 

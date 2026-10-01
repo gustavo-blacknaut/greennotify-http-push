@@ -155,6 +155,7 @@ object AlarmEngine {
 
     // Lanterna piscando (meio segundo acesa, meio apagada). Não precisa de permissão de câmera.
     private fun startTorch() {
+        if (!Prefs.isAlarmTorch(appCtx)) return
         val cm = appCtx.getSystemService(CameraManager::class.java) ?: return
         torchId = runCatching {
             cm.cameraIdList.firstOrNull { cm.getCameraCharacteristics(it).get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true }

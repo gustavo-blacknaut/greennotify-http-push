@@ -259,7 +259,7 @@
     <string name="update_snack_server">Servidor desatualizado (nova: %1$s)</string>
     <string name="update_snack_action">Atualizar</string>
     <string name="alarm_section">Alarme (alerta máximo)</string>
-    <string name="alarm_setup_ok">Tudo liberado: o alarme toca alto, vibra, acende a tela e pisca a lanterna até você parar.</string>
+    <string name="alarm_setup_ok">Tudo liberado: o alarme toca alto, vibra e acende a tela até você parar (e pisca a lanterna, se estiver ligado abaixo).</string>
     <string name="alarm_setup_missing">Falta liberar: %1$s. Sem isso o alarme pode não acender a tela ou não abrir com o app fechado.</string>
     <string name="alarm_setup_fix">Liberar agora</string>
     <string name="alarm_setup_fullscreen">tela cheia do alarme</string>
@@ -269,4 +269,5 @@
     <string name="alarm_test_button">Testar alarme</string>
     <string name="alarm_test_title">Teste do alarme</string>
     <string name="alarm_test_message">Se você está vendo isto, está tocando, vibrando e piscando. Toque em Parar alarme.</string>
+    <string name="alarm_torch">Piscar a lanterna no alarme</string>
 </resources>

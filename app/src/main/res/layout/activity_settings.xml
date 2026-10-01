@@ -413,6 +413,14 @@
                 android:layout_marginTop="8dp"
                 android:text="@string/alarm_setup_fix" />
 
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/switchAlarmTorch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/alarm_torch"
+                android:textAppearance="?attr/textAppearanceBodyLarge" />
+
             <Button
                 android:id="@+id/buttonAlarmTest"
                 style="@style/Widget.Material3.Button.OutlinedButton.Icon"
