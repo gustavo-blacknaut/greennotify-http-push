@@ -17,7 +17,8 @@ object NotificationHelper {
     const val CHANNEL_STATUS = "greennotify_status"
     const val CHANNEL_PINNED = "greennotify_pinned"
     const val CHANNEL_ALERTS = "greennotify_alerts"
-    const val CHANNEL_ALARM = "greennotify_alarm"
+    // v2: canal sem som próprio; quem toca é o AlarmService (som de alarme em repetição).
+    const val CHANNEL_ALARM = "greennotify_alarm_v2"
     const val PINNED_ID = 1002
 
     // Notificações recebidas usam o id do servidor como tag: (tag, ALERT_ID) é único, sem colisão de hashCode.
@@ -54,27 +55,22 @@ object NotificationHelper {
             CHANNEL_ALERTS, ctx.getString(R.string.channel_alerts_name), NotificationManager.IMPORTANCE_HIGH
         ).apply { description = ctx.getString(R.string.channel_alerts_desc) }
 
-        // Alerta máximo: som de ALARME (toca mesmo no silencioso, no volume de alarme), vibração longa.
+        // Alerta máximo: importância alta (pop-up + tela cheia). O som e a vibração vêm do AlarmService,
+        // que toca o alarme de verdade; o canal fica sem som para não tocar duas vezes.
         val alarm = NotificationChannel(
             CHANNEL_ALARM, ctx.getString(R.string.channel_alarm_name), NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = ctx.getString(R.string.channel_alarm_desc)
-            setSound(
-                android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
-                    ?: android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI,
-                android.media.AudioAttributes.Builder()
-                    .setUsage(android.media.AudioAttributes.USAGE_ALARM)
-                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build()
-            )
-            enableVibration(true)
-            vibrationPattern = longArrayOf(0, 800, 400, 800, 400, 800)
+            setSound(null, null)
+            enableVibration(false)
+            setBypassDnd(true)
             lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
         }
 
         nm.createNotificationChannels(listOf(status, pinned, alerts, alarm))
-        // Canal antigo (importância mínima, texto "Conectado a ...") não é mais usado.
+        // Canais antigos que não são mais usados.
         nm.deleteNotificationChannel("greennotify_service")
+        nm.deleteNotificationChannel("greennotify_alarm")
     }
 
     /**
@@ -169,17 +165,17 @@ object NotificationHelper {
         val nm = ctx.getSystemService(NotificationManager::class.java)
 
         if (json.optString("priority") == "alarm") {
-            // Alerta máximo: fora do grupo (para o pop-up/tela cheia não ficar escondido), sem trocar
-            // a imagem depois (atualizar poderia cortar o som que fica repetindo).
-            Alarm.raiseVolume(ctx)
-            nm.notify(id, ALERT_ID, buildAlarm(ctx, json, id))
+            // Alerta máximo: alarme de verdade (som em repetição, vibração, tela, lanterna) até parar.
+            Alarm.start(ctx, json)
             NotificationBus.newNotification()
             return
         }
 
+        // Resumos de grupo de versões anteriores (juntavam tudo numa pilha só): some com eles.
+        nm.activeNotifications.filter { it.tag?.startsWith(SUMMARY_PREFIX) == true }.forEach { nm.cancel(it.tag, it.id) }
+
         val notification = buildIncoming(ctx, json, id, subject, null)
         nm.notify(id, ALERT_ID, notification)
-        postGroupSummary(ctx, nm, subject, id to notification)
 
         // Imagem própria ou, sem ela, a da categoria (ex.: logo do bot na pasta Hostmine).
         val image = json.optString("image").ifBlank { json.optString("categoryImage") }
@@ -244,7 +240,9 @@ object NotificationHelper {
             .setWhen(json.optLong("createdAt").takeIf { it > 0 } ?: System.currentTimeMillis())
             .setShowWhen(true)
             .setContentIntent(open)
-            .setGroup(groupKey(subject))
+            // Grupo próprio para cada notificação: cada uma é um cartão separado na barra (o Android não
+            // junta tudo numa pilha "GreenNotify" que só abre ao tocar).
+            .setGroup(GROUP_PREFIX + "n." + id)
         // A imagem vai no círculo da notificação (como a foto de um contato); a grande fica no modal.
         b.setStyle(NotificationCompat.BigTextStyle().bigText(body.toString()))
             .setLargeIcon(if (picture != null) circle(picture) else logo(ctx))
@@ -254,10 +252,10 @@ object NotificationHelper {
     }
 
     /**
-     * Alerta máximo: canal de alarme, som repetindo sem parar (FLAG_INSISTENT) até tocar em "Parar alarme",
-     * tela cheia vermelha (se o Android permitir) e não sai arrastando para o lado.
+     * Notificação do alerta máximo: vermelha, tela cheia (se o Android permitir), botão "Parar alarme".
+     * Se for arrastada para o lado enquanto toca, volta (só sai com "Parar alarme").
      */
-    private fun buildAlarm(ctx: Context, json: JSONObject, id: String): android.app.Notification {
+    fun buildAlarm(ctx: Context, json: JSONObject, id: String, ringing: Boolean = true): android.app.Notification {
         val title = json.optString("title").ifBlank { ctx.getString(R.string.alarm_default_title) }
         val message = json.optString("message", "")
         val reason = json.optString("reason", "")
@@ -271,6 +269,12 @@ object NotificationHelper {
         val stop = PendingIntent.getBroadcast(
             ctx, ("stop" + id).hashCode(),
             Intent(ctx, AlarmStopReceiver::class.java).putExtra(AlarmStopReceiver.EXTRA_ID, id),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val repost = PendingIntent.getBroadcast(
+            ctx, ("repost" + id).hashCode(),
+            Intent(ctx, AlarmStopReceiver::class.java).setAction(AlarmStopReceiver.ACTION_REPOST)
+                .putExtra(AlarmStopReceiver.EXTRA_ID, id).putExtra(AlarmStopReceiver.EXTRA_JSON, json.toString()),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val body = listOf(message, if (reason.isNotBlank()) ctx.getString(R.string.reason_format, reason) else "")
@@ -293,10 +297,10 @@ object NotificationHelper {
             .setContentIntent(screen)
             .setFullScreenIntent(screen, true)
             .addAction(R.drawable.ic_stop, ctx.getString(R.string.alarm_stop), stop)
+            .setDeleteIntent(if (ringing) repost else null)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .apply { json.optString("category").takeIf { it.isNotBlank() }?.let { setSubText(it) } }
             .build()
-        // Repete o som até alguém parar.
-        n.flags = n.flags or android.app.Notification.FLAG_INSISTENT
         return n
     }
 
@@ -319,8 +323,6 @@ object NotificationHelper {
     private fun subjectOf(ctx: Context, json: JSONObject): String =
         json.optString("topic").ifBlank { json.optString("app") }.ifBlank { ctx.getString(R.string.subject_general) }
 
-    private fun groupKey(subject: String) = GROUP_PREFIX + subject
-
     // Título em destaque na cor da marca, como os apps grandes fazem (ex.: Mercado Livre).
     private fun highlight(ctx: Context, text: CharSequence): CharSequence =
         android.text.SpannableString(text).apply {
@@ -328,55 +330,8 @@ object NotificationHelper {
             setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, length, 0)
         }
 
-    // Um grupo por assunto, cada um com resumo próprio: tudo do mesmo assunto vira uma pilha só,
-    // separada da notificação fixa (o agrupamento automático do Android faria o toque abrir o app).
-    private fun postGroupSummary(
-        ctx: Context, nm: NotificationManager, subject: String,
-        justPosted: Pair<String, android.app.Notification>? = null, justRemoved: String? = null
-    ) {
-        // activeNotifications é atualizado de forma assíncrona: corrige com o que acabou de entrar/sair.
-        val children = childrenOf(nm, groupKey(subject))
-            .filter { it.tag != justPosted?.first && it.tag != justRemoved }
-            .map { it.notification } + listOfNotNull(justPosted?.second)
-        if (children.isEmpty()) {
-            nm.cancel(SUMMARY_PREFIX + subject, ALERT_ID)
-            return
-        }
-        val openHistory = PendingIntent.getActivity(
-            ctx, (SUMMARY_PREFIX + subject).hashCode(),
-            Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        val count = children.size
-        val countText = ctx.resources.getQuantityString(R.plurals.summary_count, count, count)
-        // O cabeçalho da pilha mostra o summaryText: é ali que o nome do assunto aparece.
-        val inbox = NotificationCompat.InboxStyle().setSummaryText(subject)
-        children.sortedByDescending { it.`when` }.take(5).forEach { n ->
-            val t = n.extras.getCharSequence(NotificationCompat.EXTRA_TITLE) ?: ""
-            val m = n.extras.getCharSequence(NotificationCompat.EXTRA_TEXT) ?: ""
-            inbox.addLine(if (m.isBlank()) t else android.text.TextUtils.concat(t, "  ", m))
-        }
-        val summary = NotificationCompat.Builder(ctx, CHANNEL_ALERTS)
-            .setSmallIcon(R.drawable.ic_stat_greennotify)
-            .setColor(ContextCompat.getColor(ctx, R.color.green))
-            .setContentTitle(highlight(ctx, subject))
-            .setContentText(countText)
-            .setLargeIcon(logo(ctx))
-            .setStyle(inbox)
-            .setGroup(groupKey(subject))
-            .setGroupSummary(true)
-            .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
-            .setAutoCancel(true)
-            .setContentIntent(openHistory)
-            .build()
-        nm.notify(SUMMARY_PREFIX + subject, ALERT_ID, summary)
-    }
-
     private fun isReceived(sbn: android.service.notification.StatusBarNotification) =
         sbn.id == ALERT_ID && sbn.tag != null && !sbn.tag.startsWith(INTERNAL_TAG_PREFIX)
-
-    private fun childrenOf(nm: NotificationManager, group: String) =
-        nm.activeNotifications.filter { isReceived(it) && it.notification.group == group }
 
     /** Avisa que o serviço parou sozinho; a notificação fixa do serviço some junto com ele. */
     fun showServiceStopped(ctx: Context, reason: String) {
@@ -396,10 +351,7 @@ object NotificationHelper {
     }
 
     fun cancel(ctx: Context, id: String) {
-        val nm = ctx.getSystemService(NotificationManager::class.java)
-        val group = nm.activeNotifications.firstOrNull { it.tag == id && it.id == ALERT_ID }?.notification?.group
-        nm.cancel(id, ALERT_ID)
-        if (group != null) postGroupSummary(ctx, nm, group.removePrefix(GROUP_PREFIX), justRemoved = id)
+        ctx.getSystemService(NotificationManager::class.java).cancel(id, ALERT_ID)
     }
 
     /** Remove só as notificações recebidas e seus resumos; a fixa do serviço e o aviso de parada ficam. */

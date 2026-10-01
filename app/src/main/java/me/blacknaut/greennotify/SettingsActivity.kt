@@ -121,6 +121,10 @@ class SettingsActivity : AppCompatActivity() {
 
         findViewById<View>(R.id.buttonBack).setOnClickListener { finish() }
         findViewById<View>(R.id.buttonBattery).setOnClickListener { requestIgnoreBatteryOptimizations() }
+        findViewById<View>(R.id.buttonAlarmTest).setOnClickListener { AlarmSetup.test(this) }
+        findViewById<View>(R.id.buttonAlarmFix).setOnClickListener {
+            AlarmSetup.missing(this).firstOrNull()?.let { AlarmSetup.open(this, it) }
+        }
         findViewById<View>(R.id.buttonTest).setOnClickListener { testConnection() }
         findViewById<View>(R.id.buttonUsage).setOnClickListener { startActivity(Intent(this, UsageActivity::class.java)) }
         findViewById<View>(R.id.buttonSave).setOnClickListener { save() }
@@ -139,6 +143,10 @@ class SettingsActivity : AppCompatActivity() {
         if (!::wifi.isInitialized || !::mobile.isInitialized) return
         val realtime = anyRealtimeSelected()
         textHint.visibility = if (realtime) View.VISIBLE else View.GONE
+        val missing = AlarmSetup.missing(this)
+        findViewById<TextView>(R.id.textAlarmSetup).text = if (missing.isEmpty()) getString(R.string.alarm_setup_ok)
+            else getString(R.string.alarm_setup_missing, missing.joinToString(", ") { getString(it.label) })
+        findViewById<View>(R.id.buttonAlarmFix).visibility = if (missing.isEmpty()) View.GONE else View.VISIBLE
         val exempt = getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)
         cardBattery.visibility = if (realtime && !exempt) View.VISIBLE else View.GONE
     }

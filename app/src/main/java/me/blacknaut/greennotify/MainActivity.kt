@@ -611,23 +611,20 @@ class MainActivity : AppCompatActivity(), NotificationSheet.Host, ComposeSheet.H
     private fun openSettings() = startActivity(Intent(this, SettingsActivity::class.java))
 
     /**
-     * Android 14+: tela cheia do alarme precisa de permissão manual. Pergunta uma vez; se recusar,
-     * o alarme ainda toca e aparece como pop-up, só não acende a tela vermelha.
+     * O alarme precisa de duas liberações do Android: tela cheia (Android 14+) e "sem restrição de bateria"
+     * (para o alarme conseguir abrir com o app em segundo plano). Pede só o que falta, no máximo 1 vez por dia.
      */
     private fun askFullScreenIfNeeded() {
-        if (Build.VERSION.SDK_INT < 34) return
-        val nm = getSystemService(android.app.NotificationManager::class.java)
-        if (nm.canUseFullScreenIntent() || Prefs.raw(this).getBoolean("asked_fullscreen", false)) return
-        Prefs.raw(this).edit().putBoolean("asked_fullscreen", true).apply()
+        val missing = AlarmSetup.missing(this)
+        if (missing.isEmpty()) return
+        val p = Prefs.raw(this)
+        if (System.currentTimeMillis() - p.getLong("alarm_setup_asked", 0) < 24 * 3600_000L) return
+        p.edit().putLong("alarm_setup_asked", System.currentTimeMillis()).apply()
         com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.fullscreen_title)
-            .setMessage(R.string.fullscreen_message)
+            .setTitle(R.string.alarm_setup_title)
+            .setMessage(getString(R.string.alarm_setup_message, missing.joinToString("\n") { "• " + getString(it.label) }))
             .setNegativeButton(R.string.fullscreen_later, null)
-            .setPositiveButton(R.string.fullscreen_allow) { _, _ ->
-                runCatching {
-                    startActivity(Intent(android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:$packageName")))
-                }
-            }
+            .setPositiveButton(R.string.fullscreen_allow) { _, _ -> AlarmSetup.open(this, missing.first()) }
             .show()
     }
 

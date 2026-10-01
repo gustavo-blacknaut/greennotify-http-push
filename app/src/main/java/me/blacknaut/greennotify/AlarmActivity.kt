@@ -72,14 +72,28 @@ class AlarmActivity : AppCompatActivity() {
     }
 }
 
-/** Botão "Parar alarme" direto na notificação (sem abrir tela). */
+/** "Parar alarme" direto na notificação; e, se a notificação for arrastada enquanto toca, ela volta. */
 class AlarmStopReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
-        Alarm.stop(ctx, intent.getStringExtra(EXTRA_ID))
+        val id = intent.getStringExtra(EXTRA_ID)
+        if (intent.action == ACTION_REPOST) {
+            if (!AlarmEngine.isRinging()) return
+            val nm = ctx.getSystemService(NotificationManager::class.java)
+            val n = AlarmService.lastNotification
+            if (AlarmService.running && n != null) nm.notify(AlarmService.NOTIF_ID, n)
+            else {
+                val json = intent.getStringExtra(EXTRA_JSON)?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return
+                nm.notify(id, 1, NotificationHelper.buildAlarm(ctx, json, id ?: "alarm"))
+            }
+            return
+        }
+        Alarm.stop(ctx, id)
     }
 
     companion object {
         const val EXTRA_ID = "id"
+        const val EXTRA_JSON = "json"
+        const val ACTION_REPOST = "me.blacknaut.greennotify.ALARM_REPOST"
     }
 }
 
@@ -110,14 +124,33 @@ object Alarm {
         if (saved >= 0) runCatching { am.setStreamVolume(AudioManager.STREAM_ALARM, saved, 0) }
     }
 
-    /** Para o som (a notificação insistente sai) e devolve o volume. A notificação continua pendente no app. */
-    fun stop(ctx: Context, id: String?) {
-        if (id != null) NotificationHelper.cancel(ctx, id)
-        else {
-            val nm = ctx.getSystemService(NotificationManager::class.java)
-            nm.activeNotifications.filter { it.notification.channelId == NotificationHelper.CHANNEL_ALARM }
-                .forEach { nm.cancel(it.tag, it.id) }
+    /**
+     * Começa o alarme. O normal é um serviço em primeiro plano (o Android não mata no meio). Se o sistema
+     * não deixar abrir o serviço agora (app em segundo plano e com otimização de bateria), toca do mesmo
+     * jeito direto daqui, com a notificação no lugar.
+     */
+    fun start(ctx: Context, json: JSONObject) {
+        val id = json.optString("id", "alarm")
+        try {
+            androidx.core.content.ContextCompat.startForegroundService(
+                ctx, Intent(ctx, AlarmService::class.java).putExtra(AlarmService.EXTRA_JSON, json.toString())
+            )
+        } catch (e: Exception) {
+            ctx.getSystemService(NotificationManager::class.java)
+                .notify(id, 1, NotificationHelper.buildAlarm(ctx, json, id))
+            AlarmEngine.start(ctx, id)
         }
+    }
+
+    /** Para som, vibração, lanterna e tela, devolve o volume. A notificação continua pendente no app. */
+    fun stop(ctx: Context, id: String?) {
+        AlarmEngine.stop(ctx)
+        ctx.stopService(Intent(ctx, AlarmService::class.java))
+        val nm = ctx.getSystemService(NotificationManager::class.java)
+        nm.cancel(AlarmService.NOTIF_ID)
+        if (id != null) NotificationHelper.cancel(ctx, id)
+        nm.activeNotifications.filter { it.notification.channelId == NotificationHelper.CHANNEL_ALARM }
+            .forEach { nm.cancel(it.tag, it.id) }
         restoreVolume(ctx)
     }
 

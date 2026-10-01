@@ -395,6 +395,33 @@
             </com.google.android.material.card.MaterialCardView>
 
             <TextView
+                style="@style/GreenNotify.Section"
+                android:text="@string/alarm_section" />
+
+            <TextView
+                android:id="@+id/textAlarmSetup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:textColor="?attr/colorOnSurfaceVariant" />
+
+            <Button
+                android:id="@+id/buttonAlarmFix"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/alarm_setup_fix" />
+
+            <Button
+                android:id="@+id/buttonAlarmTest"
+                style="@style/Widget.Material3.Button.OutlinedButton.Icon"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/alarm_test_button"
+                app:icon="@drawable/ic_bell" />
+
+            <TextView
                 android:id="@+id/textHint"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

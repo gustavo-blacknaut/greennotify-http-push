@@ -258,4 +258,15 @@
     <string name="update_snack_app">Versão %1$s do app disponível</string>
     <string name="update_snack_server">Servidor desatualizado (nova: %1$s)</string>
     <string name="update_snack_action">Atualizar</string>
+    <string name="alarm_section">Alarme (alerta máximo)</string>
+    <string name="alarm_setup_ok">Tudo liberado: o alarme toca alto, vibra, acende a tela e pisca a lanterna até você parar.</string>
+    <string name="alarm_setup_missing">Falta liberar: %1$s. Sem isso o alarme pode não acender a tela ou não abrir com o app fechado.</string>
+    <string name="alarm_setup_fix">Liberar agora</string>
+    <string name="alarm_setup_fullscreen">tela cheia do alarme</string>
+    <string name="alarm_setup_battery">uso de bateria sem restrição</string>
+    <string name="alarm_setup_title">Deixar o alarme funcionando 100%?</string>
+    <string name="alarm_setup_message">Para o alarme (ex.: bot fora do ar) tocar e acender a tela mesmo com o app fechado, libere:\n%1$s</string>
+    <string name="alarm_test_button">Testar alarme</string>
+    <string name="alarm_test_title">Teste do alarme</string>
+    <string name="alarm_test_message">Se você está vendo isto, está tocando, vibrando e piscando. Toque em Parar alarme.</string>
 </resources>

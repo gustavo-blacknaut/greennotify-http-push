@@ -16,6 +16,8 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <!-- Atualização com 1 clique: abrir o instalador com o APK novo baixado do GitHub. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Alarme: vibrar. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <!-- Android 11+: permite checar se existe navegador para abrir o link da notificação. -->
     <queries>
@@ -72,6 +74,15 @@
         <receiver
             android:name=".AlarmStopReceiver"
             android:exported="false" />
+
+        <service
+            android:name=".AlarmService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Alarme de alerta máximo do usuário (ex.: servidor dele fora do ar): toca até ser parado." />
+        </service>
 
         <activity
             android:name=".UpdateActivity"
