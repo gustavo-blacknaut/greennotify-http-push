@@ -375,7 +375,20 @@ function deleteHeartbeat(deviceId, name) {
   return db.prepare('DELETE FROM heartbeats WHERE deviceId = ? AND name = ?').run(deviceId, name).changes > 0;
 }
 
+// Resumo para o cabeçalho de inicialização.
+function stats() {
+  const one = (sql) => db.prepare(sql).get().n;
+  return {
+    devices: one('SELECT COUNT(*) AS n FROM devices'),
+    pending: one("SELECT COUNT(*) AS n FROM notifications WHERE status = 'pending'"),
+    total: one('SELECT COUNT(*) AS n FROM notifications'),
+    categories: one('SELECT COUNT(*) AS n FROM categories'),
+    watched: db.prepare('SELECT name, down FROM heartbeats ORDER BY name').all(),
+  };
+}
+
 module.exports = {
+  stats,
   getHeartbeat,
   saveHeartbeat,
   overdueHeartbeats,

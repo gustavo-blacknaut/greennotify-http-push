@@ -92,7 +92,7 @@ wss.on('connection', (ws, req) => {
 
   if (!connections.has(deviceId)) connections.set(deviceId, new Set());
   connections.get(deviceId).add(ws);
-  console.log(`[ws] dispositivo conectado: ${deviceId}`);
+  console.log(`[ws] conectado: ${store.getDevice(deviceId)?.name || deviceId}`);
 
   for (const n of store.listUndelivered(deviceId)) {
     ws.send(JSON.stringify({ type: 'notification', ...n }));
@@ -110,7 +110,7 @@ wss.on('connection', (ws, req) => {
 
   ws.on('close', () => {
     connections.get(deviceId)?.delete(ws);
-    console.log(`[ws] dispositivo desconectado: ${deviceId}`);
+    console.log(`[ws] desconectado: ${store.getDevice(deviceId)?.name || deviceId}`);
   });
 });
 
@@ -475,8 +475,83 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ error: 'erro interno' });
 });
 
+// ---------- Cabeçalho de inicialização (estilo GreenLabs) ----------
+
+const os = require('os');
+const COLOR = !process.env.NO_COLOR;
+const green = (t) => (COLOR ? `\x1b[32m${t}\x1b[0m` : t);
+const dim = (t) => (COLOR ? `\x1b[2m${t}\x1b[0m` : t);
+const bold = (t) => (COLOR ? `\x1b[1m${t}\x1b[0m` : t);
+
+const ART = [
+  '   ▄████  ██▀███  ▓█████ ▓█████  ███▄    █ ',
+  '  ██▒ ▀█▒▓██ ▒ ██▒▓█   ▀ ▓█   ▀  ██ ▀█   █ ',
+  ' ▒██░▄▄▄░▓██ ░▄█ ▒▒███   ▒███   ▓██  ▀█ ██▒',
+  ' ░▓█  ██▓▒██▀▀█▄  ▒▓█  ▄ ▒▓█  ▄ ▓██▒  ▐▌██▒',
+  ' ░▒▓███▀▒░██▓ ▒██▒░▒████▒░▒████▒▒██░   ▓██░',
+  '  ░▒   ▒ ░ ▒▓ ░▒▓░░░ ▒░ ░░░ ▒░ ░░ ▒░   ▒ ▒ ',
+];
+
+// Todo log depois do cabeçalho sai com data e hora, como no GreenLabs.
+function timestamped(fn) {
+  return (...args) => fn(`[${new Date().toISOString()}]`, ...args);
+}
+
+function lanAddresses() {
+  const out = [];
+  for (const [name, list] of Object.entries(os.networkInterfaces())) {
+    for (const a of list || []) if (a.family === 'IPv4' && !a.internal) out.push({ name, ip: a.address });
+  }
+  return out;
+}
+
+function printBanner() {
+  const s = store.stats();
+  const lines = [
+    '',
+    ...ART.map(green),
+    '',
+    `  ${bold('GreenNotify')}  servidor de notificações  ${green('v' + VERSION)}`,
+    `  ${dim('greencodes.com.br')}`,
+    '',
+    `  ${s.devices} dispositivo(s) · ${s.pending} notificação(ões) pendente(s) de ${s.total} · ${s.categories} categoria(s)`,
+  ];
+  if (s.watched.length) {
+    const names = s.watched.map((w) => (w.down ? `${w.name} (fora do ar)` : w.name)).join(', ');
+    lines.push(`  Vigiando: ${names}`);
+  }
+  lines.push('', `  Servidor GreenNotify rodando em http://0.0.0.0:${PORT}  ${dim('(HTTP, sem HTTPS)')}`);
+  // O Pterodactyl informa o IP alocado; é o endereço que vai no app.
+  const publicIp = process.env.SERVER_IP && process.env.SERVER_IP !== '0.0.0.0' ? process.env.SERVER_IP : null;
+  if (publicIp) lines.push(`  Endereço para o app:  ${green(`http://${publicIp}:${PORT}`)}`);
+  const lan = lanAddresses();
+  if (lan.length) {
+    lines.push('', '  Endereços para quem está na mesma rede:');
+    for (const a of lan) lines.push(`    http://${a.ip}:${PORT}   ${dim('(' + a.name + ')')}`);
+  }
+  lines.push('');
+  process.stdout.write(lines.join('\n') + '\n');
+  console.log = timestamped(console.log.bind(console));
+  console.warn = timestamped(console.warn.bind(console));
+  console.error = timestamped(console.error.bind(console));
+}
+
+// Avisa no console se já existe versão mais nova (só uma consulta ao GitHub, sem atualizar nada).
+async function announceUpdate() {
+  try {
+    const release = JSON.parse(await githubText(`https://api.github.com/repos/${UPDATE_REPO}/releases/latest`));
+    const latest = String(release.tag_name).replace(/^v/, '');
+    if (newerVersion(latest, VERSION)) {
+      console.log(`[update] versão ${latest} disponível (rodando ${VERSION}). Atualize pelo app: Atualizações > Atualizar servidor.`);
+    } else {
+      console.log(`[update] na versão mais nova (${VERSION}).`);
+    }
+  } catch (_) { /* sem internet ou GitHub fora: não atrapalha a inicialização */ }
+}
+
 server.listen(PORT, () => {
-  console.log(`GreenNotify server rodando em http://0.0.0.0:${PORT} (HTTP puro, sem HTTPS)`);
+  printBanner();
+  announceUpdate();
 });
 
 function shutdown(signal, code = 0) {

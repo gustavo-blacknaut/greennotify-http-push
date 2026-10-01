@@ -1,6 +1,6 @@
 {
   "name": "greennotify-server",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "Servidor HTTP (sem HTTPS) que recebe notificacoes via POST e entrega para o app Android via WebSocket",
   "main": "index.js",
   "type": "commonjs",
