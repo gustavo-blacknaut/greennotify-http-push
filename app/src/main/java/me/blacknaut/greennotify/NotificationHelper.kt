@@ -96,7 +96,7 @@ object NotificationHelper {
         }
         val nextAt = Prefs.getNextCheckAt(ctx)
         val next = if (p.kind == Policy.POLLING && nextAt > System.currentTimeMillis())
-            ctx.getString(R.string.pinned_next, android.text.format.DateFormat.getTimeFormat(ctx).format(java.util.Date(nextAt))) else ""
+            ctx.getString(R.string.pinned_next, BrTime.time(nextAt)) else ""
         val details = listOf(state, next, todayUsage(ctx)).filter { it.isNotBlank() }
         val since = Prefs.getActiveSince(ctx)
 
@@ -122,14 +122,16 @@ object NotificationHelper {
         val mins = if (since > 0) ((System.currentTimeMillis() - since) / 60000).coerceAtLeast(0) else 0
         val clock = String.format(java.util.Locale.US, "%02d:%02d:%02d", mins / 1440, (mins / 60) % 24, mins % 60)
         b.setContentTitle(if (problem.isNotBlank()) problem else ctx.getString(R.string.pinned_connected, clock))
-            .setLargeIcon(logo(ctx))
         val now = System.currentTimeMillis()
         when {
             // Modo economia: o horário da próxima verificação. (Contagem regressiva ficava negativa quando o
             // Android atrasava a verificação, e o app não pode parar o relógio sem acordar o celular.)
+            // Contagem regressiva no cabeçalho, ao lado de "GreenNotify" (o Android desenha sem acordar o app).
+            // Quando chega a zero, um redesenho marcado para essa hora troca por "verificando agora…".
             p.kind == Policy.POLLING && p.net != NetworkInfo.Net.NONE && nextAt > now ->
-                b.setShowWhen(false).setContentText(ctx.getString(R.string.pinned_next_at, netName,
-                    android.text.format.DateFormat.getTimeFormat(ctx).format(java.util.Date(nextAt))))
+                b.setUsesChronometer(true).setChronometerCountDown(true).setWhen(nextAt).setShowWhen(true)
+                    .setContentText(ctx.getString(R.string.pinned_next_at, netName,
+                        BrTime.time(nextAt)))
             p.kind == Policy.POLLING && p.net != NetworkInfo.Net.NONE ->
                 b.setShowWhen(false).setContentText(ctx.getString(R.string.pinned_checking, netName))
             p.kind == Policy.REALTIME && p.net != NetworkInfo.Net.NONE ->
@@ -258,7 +260,7 @@ object NotificationHelper {
             .setGroup(GROUP_PREFIX + "n." + id)
         // A imagem vai no círculo da notificação (como a foto de um contato); a grande fica no modal.
         b.setStyle(NotificationCompat.BigTextStyle().bigText(body.toString()))
-            .setLargeIcon(if (picture != null) circle(picture) else logo(ctx))
+            .apply { if (picture != null) setLargeIcon(circle(picture)) }
         if (picture != null) b.setOnlyAlertOnce(true)
         json.optString("category").takeIf { it.isNotBlank() }?.let { b.setSubText(it) }
         return b.build()
@@ -299,7 +301,6 @@ object NotificationHelper {
             .setContentTitle(title)
             .setContentText(message.ifBlank { reason })
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-            .setLargeIcon(logo(ctx))
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)

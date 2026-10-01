@@ -159,6 +159,8 @@ class MainActivity : AppCompatActivity(), NotificationSheet.Host, ComposeSheet.H
         refreshStatus()
         load()
         PinnedSummary.refreshAsync(this)
+        ticker.removeCallbacks(tick)
+        ticker.post(tick)
         checkUpdates()
         // Cartão vermelho enquanto faltar liberar algo para o alarme (tela cheia, bateria, etc.).
         val missing = if (Prefs.isConfigured(this)) AlarmSetup.missing(this) else emptyList()
@@ -174,7 +176,28 @@ class MainActivity : AppCompatActivity(), NotificationSheet.Host, ComposeSheet.H
         }
     }
 
+    // Contagem até a próxima verificação no cartão de status, atualizada a cada segundo com o app aberto.
+    private val ticker = android.os.Handler(android.os.Looper.getMainLooper())
+    private val tick = object : Runnable {
+        override fun run() {
+            if (Connection.isActive(this@MainActivity) && Policy.current(this@MainActivity).kind == Policy.POLLING) refreshStatus()
+            ticker.postDelayed(this, 1000)
+        }
+    }
+
+    /** Linha da bolinha verde no modo economia: contagem até a próxima verificação. */
+    private fun headerCountdown(pollMin: Int): String {
+        val at = Prefs.getNextCheckAt(this)
+        val left = at - System.currentTimeMillis()
+        return when {
+            at == 0L -> getString(R.string.header_polling, pollMin)
+            left <= 0 -> getString(R.string.card_checking_now)
+            else -> getString(R.string.card_next_in, left / 60000, (left / 1000) % 60, BrTime.time(at))
+        }
+    }
+
     override fun onPause() {
+        ticker.removeCallbacks(tick)
         NotificationBus.listener = null
         Prefs.unregisterListener(this, prefsListener)
         super.onPause()
@@ -209,7 +232,7 @@ class MainActivity : AppCompatActivity(), NotificationSheet.Host, ComposeSheet.H
                 getString(R.string.header_nonet), off, filled = false)
             active && p.kind == Policy.POLLING -> render(R.drawable.ic_battery, R.string.card_economy_title,
                 getString(R.string.card_economy_subtitle, net, p.pollMin), R.string.button_stop, R.drawable.ic_stop,
-                getString(R.string.header_polling, p.pollMin), ok, filled = false)
+                headerCountdown(p.pollMin), ok, filled = false)
             active && p.kind == Policy.OFF -> render(R.drawable.ic_power_off, R.string.card_off_title,
                 getString(R.string.card_off_subtitle, net), R.string.button_stop, R.drawable.ic_stop,
                 getString(R.string.header_off), off, filled = false)

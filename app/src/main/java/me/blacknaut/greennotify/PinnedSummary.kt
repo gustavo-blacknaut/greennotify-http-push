@@ -44,6 +44,26 @@ object PinnedSummary {
                 nm.notify(NotificationHelper.PINNED_ID, NotificationHelper.pinned(ctx, foreground = false, alert = alert))
             else -> nm.cancel(NotificationHelper.PINNED_ID)
         }
+        if (Prefs.isRunning(ctx)) scheduleRefresh(ctx)
+    }
+
+    /**
+     * Mantém o "Conectado há" e a contagem certos: redesenha a cada minuto, mas só com a tela acesa
+     * (alarme sem WAKEUP: com o celular dormindo ele espera, sem gastar bateria).
+     */
+    private fun scheduleRefresh(ctx: Context) {
+        val am = ctx.getSystemService(android.app.AlarmManager::class.java) ?: return
+        val pi = android.app.PendingIntent.getBroadcast(
+            ctx, 4245, android.content.Intent(ctx, PollReceiver::class.java).setAction(PollReceiver.ACTION_REDRAW),
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+        val next = Prefs.getNextCheckAt(ctx)
+        val now = System.currentTimeMillis()
+        // O que vier primeiro: o próximo minuto ou a hora da verificação (para não ficar negativo).
+        val at = if (next > now + 1000) minOf(now + 60_000, next + 1000) else now + 60_000
+        runCatching {
+            if (PollAlarm.canExact(ctx)) am.setExact(android.app.AlarmManager.RTC, at, pi) else am.set(android.app.AlarmManager.RTC, at, pi)
+        }
     }
 
     fun clear(ctx: Context) {

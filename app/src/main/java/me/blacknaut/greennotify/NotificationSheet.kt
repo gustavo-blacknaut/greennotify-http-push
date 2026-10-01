@@ -49,8 +49,7 @@ class NotificationSheet : BottomSheetDialogFragment() {
         view.findViewById<TextView>(R.id.sheetTime).apply {
             if (item.createdAt > 0) {
                 val d = Date(item.createdAt)
-                text = getString(R.string.sheet_sent_at,
-                    DateFormat.getMediumDateFormat(context).format(d) + " " + DateFormat.getTimeFormat(context).format(d))
+                text = getString(R.string.sheet_sent_at, BrTime.dateTime(d.time))
             } else visibility = View.GONE
         }
         view.findViewById<TextView>(R.id.sheetMessage).apply {

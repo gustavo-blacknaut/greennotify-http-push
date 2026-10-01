@@ -280,9 +280,11 @@
     <string name="alarm_volume">Volume do alarme: %1$d%% · usa o volume de ALARME, mesmo com o celular no silencioso ou com o volume de toque/mídia zerado</string>
     <string name="alarm_vibrate">Vibrar</string>
     <string name="dismiss_resolves">Tirar da barra marca como concluída</string>
-    <string name="alarm_incomplete_title">Alarme incompleto</string>
-    <string name="alarm_incomplete_text">Falta liberar: %1$s</string>
+    <string name="alarm_incomplete_title">Alarme ainda não está 100%</string>
+    <string name="alarm_incomplete_text">Falta liberar %1$s. Toque abaixo, ative e volte aqui.</string>
     <string name="alarm_tone">Som do alarme: %1$s</string>
     <string name="alarm_tone_default">alarme padrão do celular</string>
     <string name="alarm_tone_pick">Som do alarme do GreenNotify</string>
+    <string name="card_next_in">Próxima em %1$d:%2$02d · às %3$s</string>
+    <string name="card_checking_now">Verificando agora…</string>
 </resources>
