@@ -118,6 +118,13 @@ class SettingsActivity : AppCompatActivity() {
         val switchRemind = findViewById<MaterialSwitch>(R.id.switchRemind)
         switchRemind.isChecked = Prefs.isRemindEnabled(this)
         switchRemind.setOnCheckedChangeListener { _, on -> Prefs.setRemindEnabled(this, on) }
+        findViewById<MaterialSwitch>(R.id.switchPinnedForced).apply {
+            isChecked = Prefs.isPinnedForced(this@SettingsActivity)
+            setOnCheckedChangeListener { _, on ->
+                Prefs.setPinnedForced(this@SettingsActivity, on)
+                if (on) PinnedSummary.post(this@SettingsActivity)
+            }
+        }
 
         findViewById<View>(R.id.buttonBack).setOnClickListener { finish() }
         findViewById<View>(R.id.buttonBattery).setOnClickListener { requestIgnoreBatteryOptimizations() }

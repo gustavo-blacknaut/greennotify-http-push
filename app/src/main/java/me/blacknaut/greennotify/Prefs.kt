@@ -49,6 +49,10 @@ object Prefs {
     fun isAlarmTorch(ctx: Context): Boolean = prefs(ctx).getBoolean("alarm_torch", true)
     fun setAlarmTorch(ctx: Context, on: Boolean) { prefs(ctx).edit().putBoolean("alarm_torch", on).apply() }
 
+    /** Aviso fixo volta sozinho se for arrastado para fora (padrão: ligado). */
+    fun isPinnedForced(ctx: Context): Boolean = prefs(ctx).getBoolean("pinned_forced", true)
+    fun setPinnedForced(ctx: Context, on: Boolean) { prefs(ctx).edit().putBoolean("pinned_forced", on).apply() }
+
     private fun prefs(ctx: Context) =
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 

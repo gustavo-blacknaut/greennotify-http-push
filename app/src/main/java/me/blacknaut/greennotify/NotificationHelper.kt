@@ -109,6 +109,11 @@ object NotificationHelper {
             .setColor(ContextCompat.getColor(ctx, R.color.green))
             .setContentIntent(open)
             .setOngoing(true)
+            // Android 14+ deixa arrastar até aviso fixo: se arrastar, ele volta (opção nas configurações).
+            .setDeleteIntent(PendingIntent.getBroadcast(
+                ctx, 4244, Intent(ctx, PollReceiver::class.java).setAction(PollReceiver.ACTION_PINNED_DISMISSED),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            ))
             .setOnlyAlertOnce(!alert)
             .setSilent(!alert)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -125,6 +130,8 @@ object NotificationHelper {
             p.kind == Policy.POLLING && p.net != NetworkInfo.Net.NONE && nextAt > now ->
                 b.setUsesChronometer(true).setChronometerCountDown(true).setWhen(nextAt).setShowWhen(true)
                     .setContentText(ctx.getString(R.string.pinned_countdown, netName))
+            p.kind == Policy.POLLING && p.net != NetworkInfo.Net.NONE ->
+                b.setShowWhen(false).setContentText(ctx.getString(R.string.pinned_checking, netName))
             p.kind == Policy.REALTIME && p.net != NetworkInfo.Net.NONE ->
                 b.setShowWhen(false).setContentText(ctx.getString(R.string.pinned_realtime_short, netName))
             else -> b.setShowWhen(false).setContentText(state)

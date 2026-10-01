@@ -43,7 +43,6 @@ class MainActivity : AppCompatActivity(), NotificationSheet.Host, ComposeSheet.H
     private lateinit var folderRow: android.widget.LinearLayout
     private lateinit var textFoldersCount: TextView
     private lateinit var chipCategory: com.google.android.material.chip.Chip
-    private lateinit var fab: com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
 
     private var categories: List<Category> = emptyList()
     /** Pasta aberta (nome da categoria) ou null = todas. */
@@ -77,10 +76,6 @@ class MainActivity : AppCompatActivity(), NotificationSheet.Host, ComposeSheet.H
         chipCategory = findViewById(R.id.chipCategory)
         chipCategory.setOnCloseIconClickListener { selectCategory(null) }
         chipCategory.setOnClickListener { selectCategory(null) }
-        fab = findViewById(R.id.fabCompose)
-        fab.setOnClickListener {
-            if (Prefs.isConfigured(this)) ComposeSheet.show(this, currentCategory) else openSettings()
-        }
         currentCategory = savedInstanceState?.getString(STATE_CATEGORY)
 
         findViewById<View>(R.id.buttonSettings).setOnClickListener { openSettings() }
@@ -117,7 +112,6 @@ class MainActivity : AppCompatActivity(), NotificationSheet.Host, ComposeSheet.H
         recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
                 if (dy > 0 && !rv.canScrollVertically(1) && hasMore) fetchPage(reset = false)
-                if (dy > 8 && fab.isExtended) fab.shrink() else if (dy < -8 && !fab.isExtended) fab.extend()
             }
         })
         ItemTouchHelper(SwipeActions(this,

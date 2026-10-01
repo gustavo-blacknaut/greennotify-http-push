@@ -60,14 +60,25 @@
         android:id="@+id/alarmStop"
         style="@style/Widget.Material3.Button"
         android:layout_width="match_parent"
-        android:layout_height="64dp"
+        android:layout_height="96dp"
         android:layout_marginTop="40dp"
         android:backgroundTint="@color/white"
         android:text="@string/alarm_stop"
         android:textColor="@color/alarm_red"
-        android:textSize="18sp"
+        android:textSize="24sp"
         app:icon="@drawable/ic_stop"
+        app:iconSize="32dp"
         app:iconTint="@color/alarm_red" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:alpha="0.85"
+        android:gravity="center"
+        android:text="@string/alarm_stop_hint"
+        android:textColor="@color/white"
+        android:textSize="14sp" />
 
     <Button
         android:id="@+id/alarmDetails"

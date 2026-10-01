@@ -36,6 +36,17 @@ class AlarmActivity : AppCompatActivity() {
         bind(intent)
     }
 
+    // Qualquer botão de volume para o alarme (como nos despertadores).
+    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent?): Boolean {
+        if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP || keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN) {
+            val id = json?.optString("id")
+            Alarm.stop(this, id)
+            finish()
+            return true
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)

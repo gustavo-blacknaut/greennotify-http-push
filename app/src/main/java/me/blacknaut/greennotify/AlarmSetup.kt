@@ -13,7 +13,9 @@ import android.provider.Settings
 object AlarmSetup {
     enum class Item(val label: Int) {
         FULL_SCREEN(R.string.alarm_setup_fullscreen),
-        BATTERY(R.string.alarm_setup_battery)
+        BATTERY(R.string.alarm_setup_battery),
+        EXACT(R.string.alarm_setup_exact),
+        OVERLAY(R.string.alarm_setup_overlay)
     }
 
     fun missing(ctx: Context): List<Item> {
@@ -22,6 +24,9 @@ object AlarmSetup {
             out += Item.FULL_SCREEN
         }
         if (!ctx.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(ctx.packageName)) out += Item.BATTERY
+        // Só importa se alguma rede estiver no modo economia (consultar a cada N min).
+        if (Policy.anyPolling(ctx) && !PollAlarm.canExact(ctx)) out += Item.EXACT
+        if (!Settings.canDrawOverlays(ctx)) out += Item.OVERLAY
         return out
     }
 
@@ -32,6 +37,8 @@ object AlarmSetup {
             when (item) {
                 Item.FULL_SCREEN -> activity.startActivity(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, pkg))
                 Item.BATTERY -> activity.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, pkg))
+                Item.EXACT -> if (Build.VERSION.SDK_INT >= 31) activity.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, pkg))
+                Item.OVERLAY -> activity.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, pkg))
             }
         }
     }

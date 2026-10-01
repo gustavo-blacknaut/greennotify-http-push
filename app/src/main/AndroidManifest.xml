@@ -18,6 +18,10 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Alarme: vibrar. -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Modo economia: verificação na hora certa mesmo com o celular dormindo ("Alarmes e lembretes"). -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- Alarme: abrir a tela vermelha por cima de tudo mesmo com o celular em uso. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <!-- Android 11+: permite checar se existe navegador para abrir o link da notificação. -->
     <queries>
@@ -73,6 +77,10 @@
 
         <receiver
             android:name=".AlarmStopReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".PollReceiver"
             android:exported="false" />
 
         <service

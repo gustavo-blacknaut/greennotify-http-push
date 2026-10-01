@@ -270,4 +270,9 @@
     <string name="alarm_test_title">Teste do alarme</string>
     <string name="alarm_test_message">Se você está vendo isto, está tocando, vibrando e piscando. Toque em Parar alarme.</string>
     <string name="alarm_torch">Piscar a lanterna no alarme</string>
+    <string name="alarm_setup_exact">verificações na hora certa (Alarmes e lembretes)</string>
+    <string name="pinned_checking">Economia no %1$s · verificando agora…</string>
+    <string name="alarm_setup_overlay">aparecer sobre outros apps (tela cheia com o celular em uso)</string>
+    <string name="alarm_stop_hint">Os botões de volume também param o alarme</string>
+    <string name="pinned_forced">Aviso fixo sempre visível (volta se arrastar)</string>
 </resources>
