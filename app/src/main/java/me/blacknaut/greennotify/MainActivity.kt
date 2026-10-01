@@ -580,15 +580,15 @@ class MainActivity : AppCompatActivity(), NotificationSheet.Host, ComposeSheet.H
         val item = adapter.itemAt(pos)
         adapter.removeItem(item.id)
         updateEmpty()
+        NotificationHelper.cancel(applicationContext, item.id)
+        // Some do app na hora, mas fica guardada no servidor (status "deleted"). "Desfazer" devolve
+        // ao status de antes. Vai já para o servidor: sair do app antes do aviso sumir não desfaz nada.
+        ApiClient.move(applicationContext, item.id, "deleted") { _, _ -> PinnedSummary.refreshAsync(applicationContext) }
         Snackbar.make(recycler, R.string.snack_deleted, Snackbar.LENGTH_LONG)
-            .setAction(R.string.snack_undo) { adapter.insertItem(pos, item); updateEmpty() }
-            .addCallback(object : Snackbar.Callback() {
-                override fun onDismissed(bar: Snackbar?, event: Int) {
-                    if (event == DISMISS_EVENT_ACTION) return
-                    NotificationHelper.cancel(applicationContext, item.id)
-                    ApiClient.delete(applicationContext, item.id) { _, _ -> PinnedSummary.refreshAsync(applicationContext) }
-                }
-            }).show()
+            .setAction(R.string.snack_undo) {
+                adapter.insertItem(pos, item); updateEmpty()
+                ApiClient.move(applicationContext, item.id, item.status) { _, _ -> PinnedSummary.refreshAsync(applicationContext) }
+            }.show()
     }
 
     private fun openLink(link: String) {

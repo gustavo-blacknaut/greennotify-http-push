@@ -10,8 +10,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.color.MaterialColors
 
 /**
- * Arrastar para a direita arquiva, para a esquerda apaga. Enquanto arrasta aparece o fundo
- * colorido com o ícone da ação.
+ * Arrastar para a direita arquiva, para a esquerda apaga. Na aba Arquivadas (onde não dá para arquivar)
+ * os dois lados apagam. Enquanto arrasta aparece o fundo colorido com o ícone da ação.
  */
 class SwipeActions(
     ctx: Context,
@@ -31,14 +31,14 @@ class SwipeActions(
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     override fun getSwipeDirs(rv: RecyclerView, vh: RecyclerView.ViewHolder): Int =
-        if (canArchive()) ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT else ItemTouchHelper.LEFT
+        ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT
 
     override fun onMove(rv: RecyclerView, vh: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder) = false
 
     override fun onSwiped(vh: RecyclerView.ViewHolder, direction: Int) {
         val pos = vh.bindingAdapterPosition
         if (pos == RecyclerView.NO_POSITION) return
-        if (direction == ItemTouchHelper.RIGHT) onArchive(pos) else onDelete(pos)
+        if (direction == ItemTouchHelper.RIGHT && canArchive()) onArchive(pos) else onDelete(pos)
     }
 
     override fun getSwipeThreshold(vh: RecyclerView.ViewHolder) = 0.35f
@@ -50,13 +50,14 @@ class SwipeActions(
         val v = vh.itemView
         if (dX != 0f) {
             val right = dX > 0
-            paint.color = if (right) archiveColor else deleteColor
+            val archive = right && canArchive()
+            paint.color = if (archive) archiveColor else deleteColor
             val bg = if (right) RectF(v.left.toFloat(), v.top.toFloat(), v.left + dX + radius, v.bottom.toFloat())
                      else RectF(v.right + dX - radius, v.top.toFloat(), v.right.toFloat(), v.bottom.toFloat())
             c.drawRoundRect(bg, radius, radius, paint)
 
-            val icon = if (right) archiveIcon else deleteIcon
-            icon.setTint(if (right) onArchiveColor else onDeleteColor)
+            val icon = if (archive) archiveIcon else deleteIcon
+            icon.setTint(if (archive) onArchiveColor else onDeleteColor)
             val size = (24 * density).toInt()
             val margin = (24 * density).toInt()
             val top = v.top + (v.height - size) / 2

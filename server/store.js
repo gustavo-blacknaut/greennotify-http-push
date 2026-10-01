@@ -259,7 +259,7 @@ function listCategories(deviceId) {
   return db.prepare(`
     SELECT c.*,
       (SELECT COUNT(*) FROM notifications n WHERE n.deviceId = c.deviceId AND n.category = c.name COLLATE NOCASE AND n.status = 'pending') AS pending,
-      (SELECT COUNT(*) FROM notifications n WHERE n.deviceId = c.deviceId AND n.category = c.name COLLATE NOCASE) AS total
+      (SELECT COUNT(*) FROM notifications n WHERE n.deviceId = c.deviceId AND n.category = c.name COLLATE NOCASE AND n.status != 'deleted') AS total
     FROM categories c WHERE c.deviceId = ? ORDER BY c.createdAt ASC
   `).all(deviceId);
 }

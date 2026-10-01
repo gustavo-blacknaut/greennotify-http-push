@@ -15,7 +15,8 @@ object AlarmSetup {
         FULL_SCREEN(R.string.alarm_setup_fullscreen),
         BATTERY(R.string.alarm_setup_battery),
         EXACT(R.string.alarm_setup_exact),
-        OVERLAY(R.string.alarm_setup_overlay)
+        OVERLAY(R.string.alarm_setup_overlay),
+        PROMOTED(R.string.alarm_setup_promoted)
     }
 
     fun missing(ctx: Context): List<Item> {
@@ -27,6 +28,7 @@ object AlarmSetup {
         // Só importa se alguma rede estiver no modo economia (consultar a cada N min).
         if (Policy.anyPolling(ctx) && !PollAlarm.canExact(ctx)) out += Item.EXACT
         if (!Settings.canDrawOverlays(ctx)) out += Item.OVERLAY
+        if (Build.VERSION.SDK_INT >= 36 && !ctx.getSystemService(NotificationManager::class.java).canPostPromotedNotifications()) out += Item.PROMOTED
         return out
     }
 
@@ -39,6 +41,13 @@ object AlarmSetup {
                 Item.BATTERY -> activity.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, pkg))
                 Item.EXACT -> if (Build.VERSION.SDK_INT >= 31) activity.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, pkg))
                 Item.OVERLAY -> activity.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, pkg))
+                Item.PROMOTED -> runCatching {
+                    activity.startActivity(Intent("android.settings.APP_NOTIFICATION_PROMOTION_SETTINGS")
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName))
+                }.onFailure {
+                    activity.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName))
+                }
             }
         }
     }

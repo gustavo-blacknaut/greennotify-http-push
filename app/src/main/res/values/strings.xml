@@ -287,4 +287,7 @@
     <string name="alarm_tone_pick">Som do alarme do GreenNotify</string>
     <string name="card_next_in">Próxima em %1$d:%2$02d · às %3$s</string>
     <string name="card_checking_now">Verificando agora…</string>
+    <string name="chip_online">Online</string>
+    <string name="chip_offline">Offline</string>
+    <string name="alarm_setup_promoted">notificações ao vivo (pílula no topo / Now Bar)</string>
 </resources>

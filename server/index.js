@@ -140,7 +140,8 @@ function deliver(deviceId, fields) {
 const VERSION = require('./package.json').version;
 app.get('/health', (req, res) => res.json({ ok: true, version: VERSION }));
 
-const STATUSES = ['pending', 'done', 'archived'];
+// deleted = apagada no app: some de todas as listas, mas continua guardada no banco.
+const STATUSES = ['pending', 'done', 'archived', 'deleted'];
 // details = tocar abre o modal (padrão); link = abre o link direto; link_done = abre o link e marca como concluída.
 const TAP_ACTIONS = ['', 'details', 'link', 'link_done'];
 // alarm = alerta máximo: toca alarme alto e insistente até você parar, com tela cheia.

@@ -142,13 +142,34 @@ object NotificationHelper {
             // Com pendentes o aviso mantém prioridade máxima (topo), mas sem texto extra.
             b.setPriority(NotificationCompat.PRIORITY_MAX).setCategory(NotificationCompat.CATEGORY_REMINDER)
             // Android 16+: pede para virar "Live Update"; antes, notificação colorida de serviço fica no topo.
-            if (Build.VERSION.SDK_INT >= 36) b.extras.putBoolean("android.requestPromotedOngoing", true)
-            else if (foreground) b.setColorized(true)
+            // Android 16+: vira Live Update (abaixo). Antes disso, notificação colorida de serviço fica no topo.
+            if (Build.VERSION.SDK_INT < 36 && foreground) b.setColorized(true)
         } else {
             b.setPriority(NotificationCompat.PRIORITY_LOW).setCategory(NotificationCompat.CATEGORY_STATUS)
         }
         if (foreground) b.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-        return b.build()
+        // Pílula: no modo economia mostra a contagem ao vivo (o relógio do aviso); senão um texto curto.
+        val chip = when {
+            problem.isNotBlank() -> ctx.getString(R.string.chip_offline)
+            p.kind == Policy.POLLING && p.net != NetworkInfo.Net.NONE && nextAt > now -> null
+            p.net == NetworkInfo.Net.NONE -> ctx.getString(R.string.chip_offline)
+            else -> ctx.getString(R.string.chip_online)
+        }
+        return promote(ctx, b.build(), chip)
+    }
+
+    /**
+     * Android 16 (One UI 8+): pede para virar "Live Update" — fica no topo da lista, na tela de bloqueio,
+     * na Now Bar da Samsung e como pílula na barra de status (igual chamada / gravação de tela).
+     */
+    private fun promote(ctx: Context, n: android.app.Notification, chip: String?): android.app.Notification {
+        if (Build.VERSION.SDK_INT < 36) return n
+        return runCatching {
+            android.app.Notification.Builder.recoverBuilder(ctx, n)
+                .setRequestPromotedOngoing(true)
+                .apply { if (chip != null) setShortCriticalText(chip) }
+                .build()
+        }.getOrDefault(n)
     }
 
     /** "Hoje: 12,4 KB no Wi‑Fi · 3,1 KB nos dados" (só as redes com tráfego). */
