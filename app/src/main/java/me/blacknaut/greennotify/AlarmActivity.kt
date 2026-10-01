@@ -113,13 +113,11 @@ class AlarmStopReceiver : BroadcastReceiver() {
  * pelo menos 80% (se já estiver acima, fica como está). Ao parar, volta ao que era.
  */
 object Alarm {
-    private const val TARGET = 0.8f
-
     fun raiseVolume(ctx: Context) {
         val am = ctx.getSystemService(AudioManager::class.java) ?: return
         val max = am.getStreamMaxVolume(AudioManager.STREAM_ALARM)
         val current = am.getStreamVolume(AudioManager.STREAM_ALARM)
-        val target = (max * TARGET).toInt().coerceAtLeast(1)
+        val target = (max * Prefs.getAlarmVolume(ctx) / 100f).toInt().coerceIn(1, max)
         val prefs = Prefs.raw(ctx)
         // Guarda o volume original só na primeira vez (dois alarmes seguidos não perdem o valor certo).
         if (!prefs.contains(KEY_SAVED)) prefs.edit().putInt(KEY_SAVED, current).apply()
@@ -142,6 +140,8 @@ object Alarm {
      */
     fun start(ctx: Context, json: JSONObject) {
         val id = json.optString("id", "alarm")
+        // O mesmo alerta chegando de novo (tempo real + verificação, reenvio) não volta a tocar depois de parado.
+        if (id != "teste-alarme" && wasStopped(ctx, id)) return
         try {
             androidx.core.content.ContextCompat.startForegroundService(
                 ctx, Intent(ctx, AlarmService::class.java).putExtra(AlarmService.EXTRA_JSON, json.toString())
@@ -153,8 +153,17 @@ object Alarm {
         }
     }
 
+    private fun wasStopped(ctx: Context, id: String): Boolean =
+        (Prefs.raw(ctx).getString(KEY_STOPPED, "") ?: "").split(',').contains(id)
+
+    private fun markStopped(ctx: Context, id: String) {
+        val list = (Prefs.raw(ctx).getString(KEY_STOPPED, "") ?: "").split(',').filter { it.isNotBlank() && it != id }
+        Prefs.raw(ctx).edit().putString(KEY_STOPPED, (list.takeLast(30) + id).joinToString(",")).apply()
+    }
+
     /** Para som, vibração, lanterna e tela, devolve o volume. A notificação continua pendente no app. */
     fun stop(ctx: Context, id: String?) {
+        (id ?: AlarmEngine.currentId)?.let { markStopped(ctx, it) }
         AlarmEngine.stop(ctx)
         ctx.stopService(Intent(ctx, AlarmService::class.java))
         val nm = ctx.getSystemService(NotificationManager::class.java)
@@ -166,4 +175,5 @@ object Alarm {
     }
 
     private const val KEY_SAVED = "alarm_saved_volume"
+    private const val KEY_STOPPED = "alarm_stopped_ids"
 }

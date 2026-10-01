@@ -129,6 +129,23 @@ class SettingsActivity : AppCompatActivity() {
         findViewById<View>(R.id.buttonBack).setOnClickListener { finish() }
         findViewById<View>(R.id.buttonBattery).setOnClickListener { requestIgnoreBatteryOptimizations() }
         findViewById<View>(R.id.buttonAlarmTest).setOnClickListener { AlarmSetup.test(this) }
+        findViewById<MaterialSwitch>(R.id.switchAlarmSound).apply {
+            isChecked = Prefs.isAlarmSound(this@SettingsActivity)
+            setOnCheckedChangeListener { _, on -> Prefs.setAlarmSound(this@SettingsActivity, on); refreshAlarmVolume() }
+        }
+        findViewById<com.google.android.material.slider.Slider>(R.id.sliderAlarmVolume).apply {
+            value = Prefs.getAlarmVolume(this@SettingsActivity).coerceIn(20, 100).toFloat()
+            addOnChangeListener { _, v, _ -> Prefs.setAlarmVolume(this@SettingsActivity, v.toInt()); refreshAlarmVolume() }
+        }
+        refreshAlarmVolume()
+        findViewById<MaterialSwitch>(R.id.switchAlarmVibrate).apply {
+            isChecked = Prefs.isAlarmVibrate(this@SettingsActivity)
+            setOnCheckedChangeListener { _, on -> Prefs.setAlarmVibrate(this@SettingsActivity, on) }
+        }
+        findViewById<MaterialSwitch>(R.id.switchDismissResolves).apply {
+            isChecked = Prefs.isDismissResolves(this@SettingsActivity)
+            setOnCheckedChangeListener { _, on -> Prefs.setDismissResolves(this@SettingsActivity, on) }
+        }
         findViewById<MaterialSwitch>(R.id.switchAlarmTorch).apply {
             isChecked = Prefs.isAlarmTorch(this@SettingsActivity)
             setOnCheckedChangeListener { _, on -> Prefs.setAlarmTorch(this@SettingsActivity, on) }
@@ -140,6 +157,13 @@ class SettingsActivity : AppCompatActivity() {
         findViewById<View>(R.id.buttonUsage).setOnClickListener { startActivity(Intent(this, UsageActivity::class.java)) }
         findViewById<View>(R.id.buttonSave).setOnClickListener { save() }
         refreshExtras()
+    }
+
+    private fun refreshAlarmVolume() {
+        val on = Prefs.isAlarmSound(this)
+        findViewById<TextView>(R.id.textAlarmVolume).text = getString(R.string.alarm_volume, Prefs.getAlarmVolume(this))
+        findViewById<View>(R.id.textAlarmVolume).alpha = if (on) 1f else 0.4f
+        findViewById<View>(R.id.sliderAlarmVolume).isEnabled = on
     }
 
     override fun onResume() {

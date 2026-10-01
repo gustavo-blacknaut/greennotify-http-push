@@ -163,6 +163,57 @@
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
+    <!-- Falta liberar algo para o alarme funcionar por completo -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardAlarmSetup"
+        style="?attr/materialCardViewFilledStyle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="4dp"
+        android:visibility="gone"
+        app:cardBackgroundColor="?attr/colorErrorContainer"
+        app:cardCornerRadius="20dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="14dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/alarm_incomplete_title"
+                    android:textAppearance="?attr/textAppearanceTitleSmall"
+                    android:textColor="?attr/colorOnErrorContainer"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/textAlarmSetupMain"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textColor="?attr/colorOnErrorContainer" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/buttonAlarmSetupMain"
+                style="@style/Widget.Material3.Button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="@string/alarm_setup_fix" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
     <!-- Categorias: até 4 pastas (toque filtra, segurar edita/apaga) -->
     <LinearLayout
         android:layout_width="match_parent"

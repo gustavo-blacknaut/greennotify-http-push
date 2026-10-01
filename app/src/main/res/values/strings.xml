@@ -275,4 +275,11 @@
     <string name="alarm_setup_overlay">aparecer sobre outros apps (tela cheia com o celular em uso)</string>
     <string name="alarm_stop_hint">Os botões de volume também param o alarme</string>
     <string name="pinned_forced">Aviso fixo sempre visível (volta se arrastar)</string>
+    <string name="pinned_next_at">Economia no %1$s · próxima verificação às %2$s</string>
+    <string name="alarm_sound">Tocar som de alarme</string>
+    <string name="alarm_volume">Volume do alarme: %1$d%% (sobe até aqui enquanto toca)</string>
+    <string name="alarm_vibrate">Vibrar</string>
+    <string name="dismiss_resolves">Tirar da barra marca como concluída</string>
+    <string name="alarm_incomplete_title">Alarme incompleto</string>
+    <string name="alarm_incomplete_text">Falta liberar: %1$s</string>
 </resources>

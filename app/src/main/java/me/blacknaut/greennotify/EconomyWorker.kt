@@ -182,6 +182,11 @@ class PollReceiver : BroadcastReceiver() {
             if (Prefs.isRunning(ctx)) PinnedSummary.post(ctx)
             return
         }
+        if (intent.action == ACTION_DISMISSED) {
+            val id = intent.getStringExtra(EXTRA_ID)
+            if (id != null && Prefs.isDismissResolves(ctx)) ResolveWorker.enqueue(ctx, id)
+            return
+        }
         if (intent.action == ACTION_PINNED_DISMISSED) {
             if (Prefs.isRunning(ctx) && Prefs.isPinnedForced(ctx)) PinnedSummary.post(ctx)
             return
@@ -196,5 +201,7 @@ class PollReceiver : BroadcastReceiver() {
     companion object {
         const val ACTION_REDRAW = "me.blacknaut.greennotify.REDRAW"
         const val ACTION_PINNED_DISMISSED = "me.blacknaut.greennotify.PINNED_DISMISSED"
+        const val ACTION_DISMISSED = "me.blacknaut.greennotify.DISMISSED"
+        const val EXTRA_ID = "id"
     }
 }

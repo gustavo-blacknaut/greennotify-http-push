@@ -85,13 +85,13 @@ object AlarmEngine {
         currentId = id
         if (player != null) return // já tocando: só troca qual notificação é a atual
         main.removeCallbacksAndMessages(null)
-        Alarm.raiseVolume(appCtx)
-        playSound()
-        vibrate()
+        if (Prefs.isAlarmSound(appCtx)) { Alarm.raiseVolume(appCtx); playSound() } else player = MediaPlayer()
+        if (Prefs.isAlarmVibrate(appCtx)) vibrate()
         // Acende a tela só depois: com a tela apagada o Android abre a tela cheia vermelha;
         // se acender antes, ele mostra só um aviso no topo.
         main.postDelayed({ if (player != null) wakeScreen() }, 2500)
         startTorch()
+        main.postDelayed({ if (player != null) captureVolumeKeys() }, 800)
         main.postDelayed({ Alarm.stop(appCtx, currentId) }, MAX_MS)
     }
 
@@ -100,10 +100,15 @@ object AlarmEngine {
         runCatching { player?.stop() }
         runCatching { player?.release() }
         player = null
-        runCatching { vibrator(ctx).cancel() }
+        stopVibration(ctx)
+        // Alguns celulares (Samsung) às vezes ignoram o primeiro cancelamento de vibração em repetição.
+        main.postDelayed({ stopVibration(ctx) }, 400)
+        main.postDelayed({ stopVibration(ctx) }, 1500)
         setTorch(ctx, false)
         runCatching { if (wakeLock?.isHeld == true) wakeLock?.release() }
         wakeLock = null
+        volumeReceiver?.let { r -> runCatching { ctx.applicationContext.unregisterReceiver(r) } }
+        volumeReceiver = null
         currentId = null
     }
 
@@ -127,6 +132,14 @@ object AlarmEngine {
         }.getOrNull() ?: MediaPlayer() // sem som disponível: ainda vibra/acende; o objeto marca "tocando"
     }
 
+    private var activeVibrator: Vibrator? = null
+
+    private fun stopVibration(ctx: Context) {
+        runCatching { activeVibrator?.cancel() }
+        runCatching { vibrator(ctx).cancel() }
+        if (Build.VERSION.SDK_INT >= 31) runCatching { ctx.getSystemService(VibratorManager::class.java).cancel() }
+    }
+
     private fun vibrator(ctx: Context): Vibrator =
         if (Build.VERSION.SDK_INT >= 31) ctx.getSystemService(VibratorManager::class.java).defaultVibrator
         else @Suppress("DEPRECATION") ctx.getSystemService(Vibrator::class.java)
@@ -134,8 +147,10 @@ object AlarmEngine {
     private fun vibrate() {
         runCatching {
             val pattern = longArrayOf(0, 900, 500, 900, 500)
+            val v = vibrator(appCtx)
+            activeVibrator = v
             @Suppress("DEPRECATION")
-            vibrator(appCtx).vibrate(
+            v.vibrate(
                 VibrationEffect.createWaveform(pattern, 0),
                 AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build()
             )
@@ -150,6 +165,25 @@ object AlarmEngine {
                 PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE,
                 "GreenNotify:alarm"
             ).apply { acquire(MAX_MS) }
+        }
+    }
+
+    /**
+     * Botões de volume param o alarme em qualquer tela acesa, inclusive a tela de fora do Flip fechado
+     * (a tela vermelha abre na tela de dentro). Enquanto toca, qualquer mudança de volume = parar.
+     */
+    private var volumeReceiver: android.content.BroadcastReceiver? = null
+
+    private fun captureVolumeKeys() {
+        val r = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: Context, i: Intent) { main.post { Alarm.stop(appCtx, currentId) } }
+        }
+        runCatching {
+            androidx.core.content.ContextCompat.registerReceiver(
+                appCtx, r, android.content.IntentFilter("android.media.VOLUME_CHANGED_ACTION"),
+                androidx.core.content.ContextCompat.RECEIVER_EXPORTED
+            )
+            volumeReceiver = r
         }
     }
 

@@ -53,6 +53,19 @@ object Prefs {
     fun isPinnedForced(ctx: Context): Boolean = prefs(ctx).getBoolean("pinned_forced", true)
     fun setPinnedForced(ctx: Context, on: Boolean) { prefs(ctx).edit().putBoolean("pinned_forced", on).apply() }
 
+    // Alarme configurável: som (com volume), vibração e lanterna.
+    fun isAlarmSound(ctx: Context): Boolean = prefs(ctx).getBoolean("alarm_sound", true)
+    fun setAlarmSound(ctx: Context, on: Boolean) { prefs(ctx).edit().putBoolean("alarm_sound", on).apply() }
+    fun isAlarmVibrate(ctx: Context): Boolean = prefs(ctx).getBoolean("alarm_vibrate", true)
+    fun setAlarmVibrate(ctx: Context, on: Boolean) { prefs(ctx).edit().putBoolean("alarm_vibrate", on).apply() }
+    /** Volume do alarme em % do máximo (o volume do celular sobe até aqui enquanto toca). */
+    fun getAlarmVolume(ctx: Context): Int = prefs(ctx).getInt("alarm_volume", 80)
+    fun setAlarmVolume(ctx: Context, pct: Int) { prefs(ctx).edit().putInt("alarm_volume", pct).apply() }
+
+    /** Tirar uma notificação da barra (arrastar / limpar tudo) marca como concluída. Padrão: ligado. */
+    fun isDismissResolves(ctx: Context): Boolean = prefs(ctx).getBoolean("dismiss_resolves", true)
+    fun setDismissResolves(ctx: Context, on: Boolean) { prefs(ctx).edit().putBoolean("dismiss_resolves", on).apply() }
+
     private fun prefs(ctx: Context) =
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 

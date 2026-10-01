@@ -125,11 +125,11 @@ object NotificationHelper {
             .setLargeIcon(logo(ctx))
         val now = System.currentTimeMillis()
         when {
-            // Modo economia: contagem regressiva até a próxima verificação (4:59 … 0:30 … 0:05, 0:04 …).
-            // Quem desenha e atualiza a cada segundo é o próprio Android: o app não acorda para isso.
+            // Modo economia: o horário da próxima verificação. (Contagem regressiva ficava negativa quando o
+            // Android atrasava a verificação, e o app não pode parar o relógio sem acordar o celular.)
             p.kind == Policy.POLLING && p.net != NetworkInfo.Net.NONE && nextAt > now ->
-                b.setUsesChronometer(true).setChronometerCountDown(true).setWhen(nextAt).setShowWhen(true)
-                    .setContentText(ctx.getString(R.string.pinned_countdown, netName))
+                b.setShowWhen(false).setContentText(ctx.getString(R.string.pinned_next_at, netName,
+                    android.text.format.DateFormat.getTimeFormat(ctx).format(java.util.Date(nextAt))))
             p.kind == Policy.POLLING && p.net != NetworkInfo.Net.NONE ->
                 b.setShowWhen(false).setContentText(ctx.getString(R.string.pinned_checking, netName))
             p.kind == Policy.REALTIME && p.net != NetworkInfo.Net.NONE ->
@@ -247,6 +247,12 @@ object NotificationHelper {
             .setWhen(json.optLong("createdAt").takeIf { it > 0 } ?: System.currentTimeMillis())
             .setShowWhen(true)
             .setContentIntent(open)
+            // Arrastar para fora / "Limpar tudo": marca como concluída (opção nas configurações).
+            .setDeleteIntent(PendingIntent.getBroadcast(
+                ctx, ("dismiss" + id).hashCode(),
+                Intent(ctx, PollReceiver::class.java).setAction(PollReceiver.ACTION_DISMISSED).putExtra(PollReceiver.EXTRA_ID, id),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            ))
             // Grupo próprio para cada notificação: cada uma é um cartão separado na barra (o Android não
             // junta tudo numa pilha "GreenNotify" que só abre ao tocar).
             .setGroup(GROUP_PREFIX + "n." + id)

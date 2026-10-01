@@ -79,6 +79,9 @@ class MainActivity : AppCompatActivity(), NotificationSheet.Host, ComposeSheet.H
         currentCategory = savedInstanceState?.getString(STATE_CATEGORY)
 
         findViewById<View>(R.id.buttonSettings).setOnClickListener { openSettings() }
+        findViewById<View>(R.id.buttonAlarmSetupMain).setOnClickListener {
+            AlarmSetup.missing(this).firstOrNull()?.let { AlarmSetup.open(this, it) }
+        }
         findViewById<View>(R.id.buttonUpdates).setOnClickListener { startActivity(Intent(this, UpdateActivity::class.java)) }
         findViewById<View>(R.id.buttonUsage).setOnClickListener { startActivity(Intent(this, UsageActivity::class.java)) }
         buttonToggle.setOnClickListener { onToggle() }
@@ -157,6 +160,11 @@ class MainActivity : AppCompatActivity(), NotificationSheet.Host, ComposeSheet.H
         load()
         PinnedSummary.refreshAsync(this)
         checkUpdates()
+        // Cartão vermelho enquanto faltar liberar algo para o alarme (tela cheia, bateria, etc.).
+        val missing = if (Prefs.isConfigured(this)) AlarmSetup.missing(this) else emptyList()
+        findViewById<View>(R.id.cardAlarmSetup).visibility = if (missing.isEmpty()) View.GONE else View.VISIBLE
+        findViewById<TextView>(R.id.textAlarmSetupMain).text =
+            getString(R.string.alarm_incomplete_text, missing.joinToString(", ") { getString(it.label) })
         // Chegou notificação com a tela aberta: a lista atualiza sozinha (só no topo, para não pular).
         NotificationBus.listener = {
             if (!isDestroyed) {
