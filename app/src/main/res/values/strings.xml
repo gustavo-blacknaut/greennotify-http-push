@@ -290,4 +290,10 @@
     <string name="chip_online">Online</string>
     <string name="chip_offline">Offline</string>
     <string name="alarm_setup_promoted">notificações ao vivo (pílula no topo / Now Bar)</string>
+    <string name="data_section">Dados</string>
+    <string name="delete_all">Apagar todas as notificações</string>
+    <string name="delete_all_title">Apagar todas as notificações?</string>
+    <string name="delete_all_message">Somem do app e da barra (pendentes, concluídas e arquivadas). Ficam guardadas no servidor como apagadas. As categorias continuam.</string>
+    <string name="delete_all_confirm">Apagar todas</string>
+    <string name="delete_all_done">Todas as notificações foram apagadas</string>
 </resources>

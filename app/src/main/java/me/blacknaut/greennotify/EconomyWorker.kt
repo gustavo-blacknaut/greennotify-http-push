@@ -165,7 +165,9 @@ object PollAlarm {
         runCatching {
             if (canExact(ctx)) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending(ctx))
             else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending(ctx))
-            am.set(AlarmManager.RTC, at + 1000, redraw(ctx))
+            // Exato (sem acordar): com a tela acesa troca para "verificando agora…" no segundo em que zera.
+            if (canExact(ctx)) am.setExact(AlarmManager.RTC, at + 300, redraw(ctx))
+            else am.set(AlarmManager.RTC, at + 300, redraw(ctx))
         }
     }
 

@@ -154,3 +154,13 @@ export function vigiar(nome, { intervalo = 60, image, category } = {}) {
     process.once('SIGINT', () => desligar(0));
     process.once('SIGTERM', () => desligar(0));
 }
+
+/**
+ * Conclui tudo que está pendente de um [topic] e tira do celular (ex.: ticket fechado ->
+ * as notificações "Mensagens #canal" somem sozinhas). Retorna quantas foram concluídas.
+ */
+export async function resolver(topic) {
+    if (!configurado() || !topic) return 0;
+    const r = await postar({ key: process.env.GREENNOTIFY_KEY, deviceId: process.env.GREENNOTIFY_DEVICE, topic }, '/resolve');
+    return r.ok ? 1 : 0;
+}

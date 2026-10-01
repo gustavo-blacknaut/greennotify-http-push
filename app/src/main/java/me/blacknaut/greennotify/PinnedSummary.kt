@@ -60,7 +60,7 @@ object PinnedSummary {
         val next = Prefs.getNextCheckAt(ctx)
         val now = System.currentTimeMillis()
         // O que vier primeiro: o próximo minuto ou a hora da verificação (para não ficar negativo).
-        val at = if (next > now + 1000) minOf(now + 60_000, next + 1000) else now + 60_000
+        val at = if (next > now + 300) minOf(now + 60_000, next + 300) else now + 60_000
         runCatching {
             if (PollAlarm.canExact(ctx)) am.setExact(android.app.AlarmManager.RTC, at, pi) else am.set(android.app.AlarmManager.RTC, at, pi)
         }

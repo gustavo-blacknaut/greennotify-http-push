@@ -329,8 +329,19 @@ function getNotification(deviceId, id) {
 }
 
 function setStatus(deviceId, id, status) {
+  // id "all": todas as que ainda aparecem (ex.: "apagar todas" no app = status deleted, fica guardado).
+  if (id === 'all') {
+    return db.prepare("UPDATE notifications SET status = ? WHERE deviceId = ? AND status != 'deleted'").run(status, deviceId).changes > 0;
+  }
   const info = db.prepare('UPDATE notifications SET status = ? WHERE deviceId = ? AND id = ?').run(status, deviceId, id);
   return info.changes > 0;
+}
+
+// Conclui as pendentes de um assunto (ex.: ticket fechado). Devolve os ids, para tirar do celular.
+function resolveTopic(deviceId, topic) {
+  const rows = db.prepare("SELECT id FROM notifications WHERE deviceId = ? AND topic = ? COLLATE NOCASE AND status = 'pending'").all(deviceId, topic);
+  db.prepare("UPDATE notifications SET status = 'done' WHERE deviceId = ? AND topic = ? COLLATE NOCASE AND status = 'pending'").run(deviceId, topic);
+  return rows.map((r) => r.id);
 }
 
 function deleteNotification(deviceId, id) {
@@ -389,6 +400,7 @@ function stats() {
 
 module.exports = {
   stats,
+  resolveTopic,
   getHeartbeat,
   saveHeartbeat,
   overdueHeartbeats,

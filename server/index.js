@@ -214,7 +214,7 @@ app.post('/register', registerLimiter, (req, res) => {
   res.json({ deviceId, apiKey: device.apiKey, name: device.name });
 });
 
-app.use(['/notify', '/list', '/complete', '/move', '/delete', '/ack', '/categories', '/heartbeat'], failedAuthLimiter);
+app.use(['/notify', '/list', '/complete', '/move', '/delete', '/ack', '/categories', '/heartbeat', '/resolve'], failedAuthLimiter);
 
 // Enviar notificação (usado pelas suas outras aplicações).
 // POST /notify { key, deviceId, title, message, reason, app, link, topic, image, category,
@@ -258,7 +258,21 @@ app.post('/move', (req, res) => {
   const { id, status } = req.body || {};
   if (!id || !status) return res.status(400).json({ error: 'id e status são obrigatórios' });
   const ok = store.setStatus(deviceId, id, status);
+  // Saiu de pendente (concluída, arquivada, apagada): some também da barra do celular.
+  if (ok && status !== 'pending') sendToDevice(deviceId, { type: 'delete', id });
   res.json({ ok });
+});
+
+// Concluir tudo que está pendente de um assunto (ex.: o bot fecha o ticket -> some do celular).
+// POST /resolve { key, deviceId, topic } -> { ok, resolved: N }
+app.post('/resolve', (req, res) => {
+  const deviceId = auth(req, res);
+  if (!deviceId) return;
+  const { topic } = req.body;
+  if (typeof topic !== 'string' || !topic.trim()) return res.status(400).json({ error: 'topic é obrigatório' });
+  const ids = store.resolveTopic(deviceId, topic.trim());
+  for (const id of ids) sendToDevice(deviceId, { type: 'delete', id });
+  res.json({ ok: true, resolved: ids.length });
 });
 
 // Remover uma notificação (ou todas, com id="all").

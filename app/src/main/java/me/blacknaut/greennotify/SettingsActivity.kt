@@ -146,6 +146,7 @@ class SettingsActivity : AppCompatActivity() {
         findViewById<View>(R.id.buttonBack).setOnClickListener { finish() }
         findViewById<View>(R.id.buttonBattery).setOnClickListener { requestIgnoreBatteryOptimizations() }
         findViewById<View>(R.id.buttonAlarmTest).setOnClickListener { AlarmSetup.test(this) }
+        findViewById<View>(R.id.buttonDeleteAll).setOnClickListener { confirmDeleteAll() }
         findViewById<View>(R.id.buttonAlarmTone).setOnClickListener {
             val current = Prefs.getAlarmTone(this)?.let { Uri.parse(it) }
                 ?: android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
@@ -185,6 +186,30 @@ class SettingsActivity : AppCompatActivity() {
         findViewById<View>(R.id.buttonUsage).setOnClickListener { startActivity(Intent(this, UsageActivity::class.java)) }
         findViewById<View>(R.id.buttonSave).setOnClickListener { save() }
         refreshExtras()
+    }
+
+    /** Apaga todas as notificações do app (ficam guardadas no servidor como "apagadas"), com confirmação. */
+    private fun confirmDeleteAll() {
+        if (!Prefs.isConfigured(this)) return
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setIcon(R.drawable.ic_delete)
+            .setTitle(R.string.delete_all_title)
+            .setMessage(R.string.delete_all_message)
+            .setNegativeButton(R.string.button_cancel, null)
+            .setPositiveButton(R.string.delete_all_confirm) { _, _ ->
+                ApiClient.move(this, "all", "deleted") { response, error ->
+                    if (isDestroyed) return@move
+                    if (error != null) {
+                        Toast.makeText(this, error ?: getString(R.string.error_action), Toast.LENGTH_LONG).show()
+                        return@move
+                    }
+                    NotificationHelper.cancelAll(this)
+                    Prefs.setPending(this, 0, "")
+                    PinnedSummary.post(this)
+                    Toast.makeText(this, R.string.delete_all_done, Toast.LENGTH_SHORT).show()
+                }
+            }
+            .show()
     }
 
     private fun refreshAlarmVolume() {

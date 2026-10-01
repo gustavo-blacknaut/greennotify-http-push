@@ -32,6 +32,7 @@ class NotificationAdapter(
         val title: TextView = view.findViewById(R.id.textTitle)
         val time: TextView = view.findViewById(R.id.textTime)
         val meta: TextView = view.findViewById(R.id.textMeta)
+        val category: TextView = view.findViewById(R.id.textCategory)
         val message: TextView = view.findViewById(R.id.textMessage)
         val reason: TextView = view.findViewById(R.id.textReason)
         val link: MaterialButton = view.findViewById(R.id.buttonLink)
@@ -56,13 +57,13 @@ class NotificationAdapter(
         holder.avatar.backgroundTintList = ColorStateList.valueOf(avatarColor(ctx, subject))
 
         holder.title.text = item.title.ifBlank { ctx.getString(R.string.default_notification_title) }
-        holder.time.text = if (item.createdAt > 0) DateUtils.getRelativeTimeSpanString(
-            item.createdAt, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_ABBREV_RELATIVE
-        ) else ""
+        holder.time.text = if (item.createdAt > 0) BrTime.ago(item.createdAt) else ""
 
-        val meta = listOf(item.category, item.topic, item.app).filter { it.isNotBlank() }.distinct().joinToString(" · ")
+        holder.category.text = item.category
+        holder.category.visibility = if (item.category.isBlank()) View.GONE else View.VISIBLE
+        val meta = listOf(item.topic, item.app).filter { it.isNotBlank() && !it.equals(item.category, true) }.distinct().joinToString(" · ")
         holder.meta.text = meta
-        holder.meta.visibility = if (meta.isBlank()) View.GONE else View.VISIBLE
+        holder.meta.visibility = if (meta.isBlank() && item.category.isBlank()) View.GONE else View.VISIBLE
 
         holder.message.text = item.message
         holder.message.visibility = if (item.message.isBlank()) View.GONE else View.VISIBLE

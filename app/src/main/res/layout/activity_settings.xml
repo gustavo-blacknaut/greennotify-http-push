@@ -485,6 +485,21 @@
                 app:icon="@drawable/ic_bell" />
 
             <TextView
+                style="@style/GreenNotify.Section"
+                android:text="@string/data_section" />
+
+            <Button
+                android:id="@+id/buttonDeleteAll"
+                style="@style/Widget.Material3.Button.OutlinedButton.Icon"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/delete_all"
+                android:textColor="?attr/colorError"
+                app:icon="@drawable/ic_delete"
+                app:iconTint="?attr/colorError"
+                app:strokeColor="?attr/colorError" />
+
+            <TextView
                 android:id="@+id/textHint"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
