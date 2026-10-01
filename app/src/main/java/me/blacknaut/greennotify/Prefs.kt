@@ -59,12 +59,16 @@ object Prefs {
     fun isAlarmVibrate(ctx: Context): Boolean = prefs(ctx).getBoolean("alarm_vibrate", true)
     fun setAlarmVibrate(ctx: Context, on: Boolean) { prefs(ctx).edit().putBoolean("alarm_vibrate", on).apply() }
     /** Volume do alarme em % do máximo (o volume do celular sobe até aqui enquanto toca). */
-    fun getAlarmVolume(ctx: Context): Int = prefs(ctx).getInt("alarm_volume", 80)
+    fun getAlarmVolume(ctx: Context): Int = prefs(ctx).getInt("alarm_volume", 100)
     fun setAlarmVolume(ctx: Context, pct: Int) { prefs(ctx).edit().putInt("alarm_volume", pct).apply() }
 
     /** Tirar uma notificação da barra (arrastar / limpar tudo) marca como concluída. Padrão: ligado. */
     fun isDismissResolves(ctx: Context): Boolean = prefs(ctx).getBoolean("dismiss_resolves", true)
     fun setDismissResolves(ctx: Context, on: Boolean) { prefs(ctx).edit().putBoolean("dismiss_resolves", on).apply() }
+
+    /** Toque do alarme escolhido (null = o toque de alarme padrão do celular). */
+    fun getAlarmTone(ctx: Context): String? = prefs(ctx).getString("alarm_tone", null)
+    fun setAlarmTone(ctx: Context, uri: String?) { prefs(ctx).edit().putString("alarm_tone", uri).apply() }
 
     private fun prefs(ctx: Context) =
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)

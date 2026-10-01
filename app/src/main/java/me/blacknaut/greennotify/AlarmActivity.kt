@@ -121,7 +121,9 @@ object Alarm {
         val prefs = Prefs.raw(ctx)
         // Guarda o volume original só na primeira vez (dois alarmes seguidos não perdem o valor certo).
         if (!prefs.contains(KEY_SAVED)) prefs.edit().putInt(KEY_SAVED, current).apply()
-        if (current < target) runCatching { am.setStreamVolume(AudioManager.STREAM_ALARM, target, 0) }
+        // Independe do volume do celular (toque/mídia): só o volume de ALARME sobe, e volta depois.
+        runCatching { if (am.isStreamMute(AudioManager.STREAM_ALARM)) am.adjustStreamVolume(AudioManager.STREAM_ALARM, AudioManager.ADJUST_UNMUTE, 0) }
+        if (current != target) runCatching { am.setStreamVolume(AudioManager.STREAM_ALARM, target, 0) }
     }
 
     fun restoreVolume(ctx: Context) {

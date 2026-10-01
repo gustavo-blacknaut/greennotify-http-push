@@ -113,7 +113,8 @@ object AlarmEngine {
     }
 
     private fun playSound() {
-        val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+        val uri = Prefs.getAlarmTone(appCtx)?.let { android.net.Uri.parse(it) }
+            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
             ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
         player = runCatching {

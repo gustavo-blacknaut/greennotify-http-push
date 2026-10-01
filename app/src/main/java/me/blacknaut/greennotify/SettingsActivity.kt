@@ -20,6 +20,23 @@ import java.util.Locale
 
 class SettingsActivity : AppCompatActivity() {
 
+    // Escolher o toque do alarme (seletor do próprio Android, só toques de alarme).
+    private val pickTone = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { r ->
+        if (r.resultCode != RESULT_OK) return@registerForActivityResult
+        @Suppress("DEPRECATION")
+        val uri = r.data?.getParcelableExtra<Uri>(android.media.RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+        Prefs.setAlarmTone(this, uri?.toString())
+        refreshAlarmTone()
+    }
+
+    private fun refreshAlarmTone() {
+        val uri = Prefs.getAlarmTone(this)?.let { Uri.parse(it) }
+            ?: android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
+        val name = runCatching { android.media.RingtoneManager.getRingtone(this, uri)?.getTitle(this) }.getOrNull()
+            ?: getString(R.string.alarm_tone_default)
+        findViewById<android.widget.Button>(R.id.buttonAlarmTone).text = getString(R.string.alarm_tone, name)
+    }
+
     private lateinit var editServerUrl: TextInputEditText
     private lateinit var editDeviceId: TextInputEditText
     private lateinit var editApiKey: TextInputEditText
@@ -129,6 +146,17 @@ class SettingsActivity : AppCompatActivity() {
         findViewById<View>(R.id.buttonBack).setOnClickListener { finish() }
         findViewById<View>(R.id.buttonBattery).setOnClickListener { requestIgnoreBatteryOptimizations() }
         findViewById<View>(R.id.buttonAlarmTest).setOnClickListener { AlarmSetup.test(this) }
+        findViewById<View>(R.id.buttonAlarmTone).setOnClickListener {
+            val current = Prefs.getAlarmTone(this)?.let { Uri.parse(it) }
+                ?: android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
+            pickTone.launch(Intent(android.media.RingtoneManager.ACTION_RINGTONE_PICKER)
+                .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_TYPE, android.media.RingtoneManager.TYPE_ALARM)
+                .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_TITLE, getString(R.string.alarm_tone_pick))
+                .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, current))
+        }
+        refreshAlarmTone()
         findViewById<MaterialSwitch>(R.id.switchAlarmSound).apply {
             isChecked = Prefs.isAlarmSound(this@SettingsActivity)
             setOnCheckedChangeListener { _, on -> Prefs.setAlarmSound(this@SettingsActivity, on); refreshAlarmVolume() }

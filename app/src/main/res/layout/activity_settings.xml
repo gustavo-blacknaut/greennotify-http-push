@@ -437,6 +437,14 @@
                 android:text="@string/alarm_sound"
                 android:textAppearance="?attr/textAppearanceBodyLarge" />
 
+            <Button
+                android:id="@+id/buttonAlarmTone"
+                style="@style/Widget.Material3.Button.TextButton.Icon"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="start|center_vertical"
+                app:icon="@drawable/ic_bell" />
+
             <TextView
                 android:id="@+id/textAlarmVolume"
                 android:layout_width="match_parent"
