@@ -10,9 +10,7 @@ Documentação completa de cada parte:
 
 - [`server/README.md`](server/README.md) — como rodar, subir no Pterodactyl e todos os
   endpoints com exemplos em curl/Python/PHP/PowerShell
-- [`AI_INTEGRATION.md`](AI_INTEGRATION.md) — cola isso no contexto de uma IA (Claude,
-  Copilot, etc.) e só peça "integra as notificações do GreenNotify aqui" — tem tudo que
-  ela precisa saber pra gerar o código sozinha
+- [`INTEGRATION_GUIDE.md`](INTEGRATION_GUIDE.md) — referência técnica completa para integrar aplicações e scripts
 - Este arquivo — visão geral rápida
 
 ## 1. Servidor (`server/`)
